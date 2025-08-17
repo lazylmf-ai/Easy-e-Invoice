@@ -4,19 +4,38 @@ import { validateInvoice, calculateValidationScore, tinSchema, invoiceSchema } f
 // Test data
 const mockOrg = {
   tin: 'C1234567890',
-  industryCode: '62010'
+  industryCode: '62010',
+  isSstRegistered: true
 };
 
 const mockInvoice = {
-  eInvoiceType: '01',
-  currency: 'MYR',
-  exchangeRate: '1.0',
+  invoiceNumber: 'INV-2024-001',
+  eInvoiceType: '01' as const,
+  issueDate: '2024-08-17',
+  dueDate: '2024-09-17',
+  currency: 'MYR' as const,
+  exchangeRate: '1.000000',
+  subtotal: '1000.00',
+  sstAmount: '60.00',
+  totalDiscount: '0.00',
+  grandTotal: '1060.00',
   isConsolidated: false,
-  referenceInvoiceId: null
+  consolidationPeriod: '2024-08',
+  referenceInvoiceId: undefined,
+  status: 'draft' as const,
+  buyerName: 'Test Buyer',
+  buyerTin: 'C0987654321',
+  notes: 'Test invoice',
+  validationScore: 100
 };
 
 const mockLines = [
   {
+    lineNumber: 1,
+    itemDescription: 'Professional Services',
+    quantity: '1.000',
+    unitPrice: '1000.00',
+    discountAmount: '0.00',
     lineTotal: '1000.00',
     sstRate: '6.00',
     sstAmount: '60.00'

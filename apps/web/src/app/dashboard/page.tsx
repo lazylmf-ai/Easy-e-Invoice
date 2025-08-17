@@ -67,6 +67,41 @@ export default function DashboardPage() {
               <p className="text-gray-600 mb-8">
                 Welcome to your Malaysian e-Invoice compliance dashboard
               </p>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                <button
+                  onClick={() => router.push('/invoices/create')}
+                  className="bg-primary-600 hover:bg-primary-700 text-white p-6 rounded-lg shadow transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Create Invoice</div>
+                  <div className="text-sm opacity-90">Start a new e-Invoice</div>
+                </button>
+                
+                <button
+                  onClick={() => router.push('/invoices')}
+                  className="bg-gray-600 hover:bg-gray-700 text-white p-6 rounded-lg shadow transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">View Invoices</div>
+                  <div className="text-sm opacity-90">Manage existing invoices</div>
+                </button>
+                
+                <button
+                  onClick={() => router.push('/invoices/import')}
+                  className="bg-green-600 hover:bg-green-700 text-white p-6 rounded-lg shadow transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Import CSV</div>
+                  <div className="text-sm opacity-90">Bulk import invoices</div>
+                </button>
+                
+                <button
+                  onClick={() => router.push('/org/setup')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white p-6 rounded-lg shadow transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Organization</div>
+                  <div className="text-sm opacity-90">Update company settings</div>
+                </button>
+              </div>
               
               {user?.organization && (
                 <div className="card max-w-md mx-auto">

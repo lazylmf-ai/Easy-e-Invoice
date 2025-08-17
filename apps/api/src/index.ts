@@ -6,11 +6,14 @@ import { secureHeaders } from 'hono/secure-headers';
 
 import { authRoutes } from './routes/auth';
 import { organizationRoutes } from './routes/organizations';
+import { invoiceRoutes } from './routes/invoices';
+import { importRoutes } from './routes/import';
 
 export interface Env {
   DATABASE_URL: string;
   JWT_SECRET: string;
   RESEND_API_KEY: string;
+  FRONTEND_URL?: string;
 }
 
 const app = new Hono();
@@ -47,6 +50,8 @@ app.get('/health', (c) => {
 // Mount routes
 app.route('/auth', authRoutes);
 app.route('/org', organizationRoutes);
+app.route('/invoices', invoiceRoutes);
+app.route('/import', importRoutes);
 
 // Error handling
 app.onError((err, c) => {

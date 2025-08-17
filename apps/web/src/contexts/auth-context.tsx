@@ -7,7 +7,9 @@ import { api, getAuthToken, setAuthToken, clearAuthToken } from '@/lib/api';
 export interface User {
   id: string;
   email: string;
-  orgId: string;
+  orgId: string | null;
+  isEmailVerified: boolean;
+  hasCompletedOnboarding: boolean;
   organization?: {
     id: string;
     name: string;
@@ -84,7 +86,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (response.token && response.user) {
         setAuthToken(response.token);
         setUser(response.user);
-        router.push('/dashboard');
+        
+        // Don't redirect here - let the component handle it
+        // This allows for better UX with loading states
       } else {
         throw new Error('Invalid response from verification');
       }
@@ -107,16 +111,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const refreshUser = async (): Promise<void> => {
     try {
-      const orgResponse = await api.organization.get();
+      const userResponse = await api.auth.me();
       
-      if (orgResponse.organization) {
-        // Create user object from organization data
-        const userData: User = {
-          id: orgResponse.organization.id,
-          email: 'user@example.com', // TODO: Get from JWT or separate endpoint
-          orgId: orgResponse.organization.id,
-          organization: orgResponse.organization,
-        };
+      if (userResponse.user) {
+        let userData = userResponse.user;
+        
+        // If user has completed onboarding, get organization details
+        if (userData.hasCompletedOnboarding && userData.orgId) {
+          try {
+            const orgResponse = await api.organization.get();
+            if (orgResponse.organization) {
+              userData = {
+                ...userData,
+                organization: orgResponse.organization,
+              };
+            }
+          } catch (orgError) {
+            console.warn('Failed to load organization details:', orgError);
+            // Continue without organization details
+          }
+        }
         
         setUser(userData);
       }

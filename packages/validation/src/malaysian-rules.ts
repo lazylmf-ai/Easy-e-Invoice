@@ -1,22 +1,18 @@
-// Define minimal interfaces to avoid circular dependencies
-interface Invoice {
-  id?: string;
-  eInvoiceType: string;
-  currency: string;
-  exchangeRate: string;
-  isConsolidated: boolean;
-  referenceInvoiceId?: string | null;
-}
+import { validateTinFormat } from './tin-validation';
+import { getIndustryCode, isB2cConsolidationAllowed } from './industry-codes';
+import type { Invoice, InvoiceLine, CompleteInvoice } from './invoice-schemas';
 
-interface InvoiceLine {
-  lineTotal: string;
-  sstRate: string;
-  sstAmount: string;
-}
-
+// Organization interface for validation
 interface Organization {
   tin: string;
   industryCode?: string | null;
+  isSstRegistered?: boolean;
+}
+
+// Party interface for validation
+interface Party {
+  tin: string;
+  name: string;
 }
 
 export interface ValidationRule {
@@ -25,7 +21,7 @@ export interface ValidationRule {
   field: string;
   message: string;
   fixHint: string;
-  check: (invoice: Invoice, lines: InvoiceLine[], org: Organization) => boolean;
+  check: (invoice: Invoice, lines: InvoiceLine[], org: Organization, buyer?: Party) => boolean;
 }
 
 export const MALAYSIAN_VALIDATION_RULES: ValidationRule[] = [
@@ -33,20 +29,34 @@ export const MALAYSIAN_VALIDATION_RULES: ValidationRule[] = [
     code: 'MY-001',
     severity: 'error',
     field: 'supplier.tin',
-    message: 'Malaysian TIN format invalid',
-    fixHint: 'Use format C1234567890 or 123456789012',
-    check: (invoice, lines, org) => {
-      return /^[A-Z]\d{10}$|^\d{12}$/.test(org.tin);
+    message: 'Supplier TIN format invalid',
+    fixHint: 'Use format C1234567890 (corporate) or 123456789012 (individual)',
+    check: (invoice, lines, org, buyer) => {
+      const validation = validateTinFormat(org.tin);
+      return validation.isValid;
     }
   },
   
   {
     code: 'MY-002',
     severity: 'error',
+    field: 'buyer.tin',
+    message: 'Buyer TIN format invalid',
+    fixHint: 'Use format C1234567890 (corporate) or 123456789012 (individual)',
+    check: (invoice, lines, org, buyer) => {
+      if (!buyer?.tin) return true; // Optional for B2C consolidated
+      const validation = validateTinFormat(buyer.tin);
+      return validation.isValid;
+    }
+  },
+  
+  {
+    code: 'MY-003',
+    severity: 'error',
     field: 'line_items[].sst_amount',
     message: 'SST calculation incorrect',
     fixHint: 'SST Amount = Line Total × SST Rate ÷ 100',
-    check: (invoice, lines, org) => {
+    check: (invoice, lines, org, buyer) => {
       return lines.every(line => {
         const expectedSst = (parseFloat(line.lineTotal) * parseFloat(line.sstRate)) / 100;
         const actualSst = parseFloat(line.sstAmount);
@@ -56,36 +66,111 @@ export const MALAYSIAN_VALIDATION_RULES: ValidationRule[] = [
   },
   
   {
-    code: 'MY-003',
+    code: 'MY-004',
     severity: 'error',
     field: 'invoice.is_consolidated',
     message: 'Industry not eligible for B2C consolidation',
     fixHint: 'Issue individual invoices for utilities, telecom, government sectors',
-    check: (invoice, lines, org) => {
-      const prohibitedIndustries = ['35101', '35102', '35103', '36000', '37000', '61', '52211', '52212', '84'];
-      return !invoice.isConsolidated || !prohibitedIndustries.includes(org.industryCode || '');
-    }
-  },
-  
-  {
-    code: 'MY-004',
-    severity: 'error',
-    field: 'invoice.exchange_rate',
-    message: 'Exchange rate required for non-MYR invoices',
-    fixHint: 'Provide Bank Negara Malaysia reference rate',
-    check: (invoice, lines, org) => {
-      return invoice.currency === 'MYR' || parseFloat(invoice.exchangeRate) > 0;
+    check: (invoice, lines, org, buyer) => {
+      if (!invoice.isConsolidated) return true;
+      const consolidationCheck = isB2cConsolidationAllowed(org.industryCode || '');
+      return consolidationCheck.allowed;
     }
   },
   
   {
     code: 'MY-005',
     severity: 'error',
+    field: 'invoice.exchange_rate',
+    message: 'Exchange rate required for non-MYR invoices',
+    fixHint: 'Provide Bank Negara Malaysia reference rate (6 decimal places)',
+    check: (invoice, lines, org, buyer) => {
+      return invoice.currency === 'MYR' || parseFloat(invoice.exchangeRate) !== 1.0;
+    }
+  },
+  
+  {
+    code: 'MY-006',
+    severity: 'error',
     field: 'invoice.reference_invoice_id',
-    message: 'Credit note must reference original invoice',
-    fixHint: 'Provide original invoice number being credited',
-    check: (invoice, lines, org) => {
-      return invoice.eInvoiceType !== '02' || invoice.referenceInvoiceId !== null;
+    message: 'Credit/Debit note must reference original invoice',
+    fixHint: 'Provide original invoice ID or number for credit/debit notes',
+    check: (invoice, lines, org, buyer) => {
+      const requiresReference = ['02', '03'].includes(invoice.eInvoiceType);
+      return !requiresReference || !!invoice.referenceInvoiceId;
+    }
+  },
+  
+  {
+    code: 'MY-007',
+    severity: 'error',
+    field: 'invoice.buyer_required',
+    message: 'Buyer information required for non-consolidated invoices',
+    fixHint: 'Provide buyer details or mark invoice as consolidated for B2C',
+    check: (invoice, lines, org, buyer) => {
+      return invoice.isConsolidated || !!buyer;
+    }
+  },
+  
+  {
+    code: 'MY-008',
+    severity: 'warning',
+    field: 'line_items[].sst_rate',
+    message: 'SST rate applied but organization not SST registered',
+    fixHint: 'Register for SST or remove SST charges',
+    check: (invoice, lines, org, buyer) => {
+      const hasSST = lines.some(line => parseFloat(line.sstRate) > 0);
+      return !hasSST || !!org.isSstRegistered;
+    }
+  },
+  
+  {
+    code: 'MY-009',
+    severity: 'warning',
+    field: 'invoice.consolidation_period',
+    message: 'Consolidation period should match issue date month',
+    fixHint: 'Set consolidation period to YYYY-MM format matching issue date',
+    check: (invoice, lines, org, buyer) => {
+      if (!invoice.isConsolidated || !invoice.consolidationPeriod) return true;
+      const issueMonth = invoice.issueDate.substring(0, 7); // YYYY-MM
+      return invoice.consolidationPeriod === issueMonth;
+    }
+  },
+  
+  {
+    code: 'MY-010',
+    severity: 'warning',
+    field: 'invoice.due_date',
+    message: 'Due date should be within reasonable payment terms',
+    fixHint: 'Set due date within 30-90 days of issue date',
+    check: (invoice, lines, org, buyer) => {
+      if (!invoice.dueDate) return true;
+      const issueDate = new Date(invoice.issueDate);
+      const dueDate = new Date(invoice.dueDate);
+      const daysDiff = Math.ceil((dueDate.getTime() - issueDate.getTime()) / (1000 * 60 * 60 * 24));
+      return daysDiff >= 0 && daysDiff <= 90;
+    }
+  },
+  
+  {
+    code: 'MY-011',
+    severity: 'info',
+    field: 'invoice.currency',
+    message: 'Foreign currency invoice detected',
+    fixHint: 'Ensure exchange rate is from Bank Negara Malaysia on issue date',
+    check: (invoice, lines, org, buyer) => {
+      return invoice.currency === 'MYR';
+    }
+  },
+  
+  {
+    code: 'MY-012',
+    severity: 'info',
+    field: 'line_items[].quantity',
+    message: 'High quantity detected',
+    fixHint: 'Verify quantity is correct for bulk transactions',
+    check: (invoice, lines, org, buyer) => {
+      return lines.every(line => parseFloat(line.quantity) <= 10000);
     }
   }
 ];
@@ -102,13 +187,14 @@ export interface ValidationResult {
 export function validateInvoice(
   invoice: Invoice,
   lines: InvoiceLine[],
-  org: Organization
+  org: Organization,
+  buyer?: Party
 ): ValidationResult[] {
   const results: ValidationResult[] = [];
   
   for (const rule of MALAYSIAN_VALIDATION_RULES) {
     try {
-      const isValid = rule.check(invoice, lines, org);
+      const isValid = rule.check(invoice, lines, org, buyer);
       
       if (!isValid) {
         results.push({
@@ -127,6 +213,18 @@ export function validateInvoice(
   }
   
   return results;
+}
+
+export function validateCompleteInvoice(
+  completeInvoice: CompleteInvoice,
+  org: Organization
+): ValidationResult[] {
+  return validateInvoice(
+    completeInvoice.invoice,
+    completeInvoice.lineItems,
+    org,
+    completeInvoice.buyer
+  );
 }
 
 export function calculateValidationScore(results: ValidationResult[]): number {

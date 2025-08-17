@@ -104,6 +104,12 @@ export const api = {
         data: { token },
       }),
     
+    me: () =>
+      apiRequest({
+        method: 'GET',
+        url: '/auth/me',
+      }),
+    
     logout: () =>
       apiRequest({
         method: 'POST',
@@ -138,6 +144,98 @@ export const api = {
         method: 'POST',
         url: '/org/validate-tin',
         data: { tin },
+      }),
+  },
+
+  // Invoice endpoints
+  invoices: {
+    list: (params?: string) =>
+      apiRequest({
+        method: 'GET',
+        url: `/invoices${params ? `?${params}` : ''}`,
+      }),
+    
+    get: (id: string) =>
+      apiRequest({
+        method: 'GET',
+        url: `/invoices/${id}`,
+      }),
+    
+    create: (data: any) =>
+      apiRequest({
+        method: 'POST',
+        url: '/invoices',
+        data,
+      }),
+    
+    update: (id: string, data: any) =>
+      apiRequest({
+        method: 'PUT',
+        url: `/invoices/${id}`,
+        data,
+      }),
+    
+    delete: (id: string) =>
+      apiRequest({
+        method: 'DELETE',
+        url: `/invoices/${id}`,
+      }),
+    
+    validate: (id: string) =>
+      apiRequest({
+        method: 'POST',
+        url: `/invoices/${id}/validate`,
+      }),
+  },
+
+  // Import endpoints
+  import: {
+    parseCSV: (csvData: string) =>
+      apiRequest({
+        method: 'POST',
+        url: '/import/parse-csv',
+        data: { csvData },
+      }),
+    
+    importInvoices: (data: {
+      csvData: string;
+      columnMapping: Record<string, number>;
+      hasHeaders?: boolean;
+      validateOnly?: boolean;
+      batchSize?: number;
+    }) =>
+      apiRequest({
+        method: 'POST',
+        url: '/import/invoices',
+        data,
+      }),
+    
+    startChunkedImport: (data: {
+      csvData: string;
+      columnMapping: Record<string, number>;
+      hasHeaders?: boolean;
+      validateOnly?: boolean;
+      batchSize?: number;
+    }) =>
+      apiRequest({
+        method: 'POST',
+        url: '/import/start-chunked-import',
+        data,
+      }),
+    
+    getProgress: (importId: string) =>
+      apiRequest({
+        method: 'GET',
+        url: `/import/progress/${importId}`,
+      }),
+    
+    getTemplate: () =>
+      apiRequest({
+        method: 'GET',
+        url: '/import/template',
+        headers: {
+          'Accept': 'text/csv',
+        },
       }),
   },
 
