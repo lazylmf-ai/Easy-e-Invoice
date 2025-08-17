@@ -1,0 +1,106 @@
+'use client';
+
+import { useAuth } from '@/contexts/auth-context';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
+export default function DashboardPage() {
+  const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isLoading, isAuthenticated, router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null; // Will redirect to login
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Navigation */}
+      <nav className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold">E</span>
+              </div>
+              <span className="ml-2 text-xl font-semibold text-gray-900">
+                Easy e-Invoice
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-700">
+                {user?.organization?.name || 'Welcome'}
+              </span>
+              <button
+                onClick={logout}
+                className="btn-secondary text-sm"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="border-4 border-dashed border-gray-200 rounded-lg h-96 p-8">
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                Dashboard
+              </h1>
+              <p className="text-gray-600 mb-8">
+                Welcome to your Malaysian e-Invoice compliance dashboard
+              </p>
+              
+              {user?.organization && (
+                <div className="card max-w-md mx-auto">
+                  <div className="card-header">
+                    <h3 className="text-lg font-medium">Organization Info</h3>
+                  </div>
+                  <div className="card-body">
+                    <dl className="space-y-2">
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Name</dt>
+                        <dd className="text-sm text-gray-900">{user.organization.name}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">TIN</dt>
+                        <dd className="text-sm text-gray-900">{user.organization.tin}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">Currency</dt>
+                        <dd className="text-sm text-gray-900">{user.organization.currency}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-sm font-medium text-gray-500">SST Registered</dt>
+                        <dd className="text-sm text-gray-900">
+                          {user.organization.isSstRegistered ? 'Yes' : 'No'}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}

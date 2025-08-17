@@ -1,0 +1,16 @@
+name = "easy-e-invoice-api"
+main = "src/index.ts"
+compatibility_date = "2024-08-16"
+compatibility_flags = ["nodejs_compat"]
+
+[env.development]
+vars = { ENVIRONMENT = "development" }
+
+[env.production]
+name = "easy-e-invoice-api-prod"
+vars = { ENVIRONMENT = "production" }
+
+# To set secrets:
+# wrangler secret put DATABASE_URL
+# wrangler secret put JWT_SECRET
+# wrangler secret put RESEND_API_KEY

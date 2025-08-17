@@ -1,0 +1,35 @@
+{
+  "name": "easy-e-invoice",
+  "version": "1.0.0",
+  "description": "Malaysian e-Invoice compliance helper for micro-SMEs",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "db:generate": "cd packages/database && drizzle-kit generate",
+    "db:push": "cd packages/database && drizzle-kit push",
+    "db:migrate": "cd packages/database && drizzle-kit migrate",
+    "db:studio": "cd packages/database && drizzle-kit studio",
+    "api:dev": "cd apps/api && wrangler dev",
+    "api:deploy": "cd apps/api && wrangler deploy",
+    "web:dev": "cd apps/web && npm run dev",
+    "web:build": "cd apps/web && npm run build"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "packageManager": "npm@11.5.2",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
