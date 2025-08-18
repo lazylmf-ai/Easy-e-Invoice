@@ -2,3 +2,20 @@
 > @einvoice/api@1.0.0 typecheck
 > tsc --noEmit
 
+src/routes/auth.ts(9,23): error TS2307: Cannot find module '@einvoice/database/schema' or its corresponding type declarations.
+src/routes/auth.ts(30,19): error TS2352: Conversion of type 'Bindings | undefined' to type 'Env' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Bindings' is missing the following properties from type 'Env': DATABASE_URL, JWT_SECRET, RESEND_API_KEY
+src/routes/auth.ts(72,19): error TS2352: Conversion of type 'Bindings | undefined' to type 'Env' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Bindings' is missing the following properties from type 'Env': DATABASE_URL, JWT_SECRET, RESEND_API_KEY
+src/routes/auth.ts(81,40): error TS2554: Expected 0 arguments, but got 1.
+src/routes/auth.ts(176,17): error TS2352: Conversion of type 'Bindings | undefined' to type 'Env' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Bindings' is missing the following properties from type 'Env': DATABASE_URL, JWT_SECRET, RESEND_API_KEY
+src/routes/auth.ts(177,38): error TS2554: Expected 0 arguments, but got 1.
+src/services/auth-service.ts(2,24): error TS2307: Cannot find module 'resend' or its corresponding type declarations.
+npm error Lifecycle script `typecheck` failed with error:
+npm error code 2
+npm error path /Users/lazylmf/StudioProjects/Easy-e-Invoice/apps/api
+npm error workspace @einvoice/api@1.0.0
+npm error location /Users/lazylmf/StudioProjects/Easy-e-Invoice/apps/api
+npm error command failed
+npm error command sh -c tsc --noEmit

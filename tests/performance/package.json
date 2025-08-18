@@ -1,0 +1,18 @@
+{
+  "name": "@einvoice/performance-tests",
+  "version": "1.0.0",
+  "description": "Performance tests for Easy e-Invoice",
+  "scripts": {
+    "test": "vitest",
+    "test:csv": "vitest csv-import.performance.test.ts",
+    "test:export": "vitest export.performance.test.ts",
+    "test:validation": "vitest validation.performance.test.ts",
+    "test:ci": "vitest --reporter=junit --outputFile=performance-results.xml",
+    "benchmark": "node --expose-gc --max-old-space-size=1024 node_modules/.bin/vitest"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

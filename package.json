@@ -10,8 +10,20 @@
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
+    "build:web": "turbo run build --filter=web",
+    "build:api": "turbo run build --filter=api",
     "test": "turbo run test",
+    "test:unit": "vitest packages/validation/src --coverage",
+    "test:integration": "vitest apps/api/tests --run",
+    "test:e2e": "playwright test",
+    "test:performance": "cd tests/performance && npm run test",
+    "test:security": "vitest tests/security --run",
+    "test:smoke": "vitest tests/smoke --run",
+    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e && npm run test:performance && npm run test:security",
     "lint": "turbo run lint",
+    "lint:fix": "turbo run lint -- --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
     "db:generate": "cd packages/database && drizzle-kit generate",
@@ -21,12 +33,40 @@
     "api:dev": "cd apps/api && wrangler dev",
     "api:deploy": "cd apps/api && wrangler deploy",
     "web:dev": "cd apps/web && npm run dev",
-    "web:build": "cd apps/web && npm run build"
+    "web:build": "cd apps/web && npm run build",
+    "start": "turbo run start",
+    "prepare": "husky install"
   },
   "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
     "turbo": "^2.5.6",
     "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "vitest": "^1.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run test:unit"
+    }
   },
   "packageManager": "npm@11.5.2",
   "engines": {

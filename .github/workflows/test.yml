@@ -1,0 +1,233 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20'
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ${{ secrets.TURBO_TEAM }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        test-type: [unit, integration, e2e, performance, security]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup test database
+        if: matrix.test-type == 'integration' || matrix.test-type == 'e2e'
+        run: |
+          docker run -d \
+            --name test-postgres \
+            -e POSTGRES_PASSWORD=testpassword \
+            -e POSTGRES_USER=testuser \
+            -e POSTGRES_DB=testdb \
+            -p 5432:5432 \
+            postgres:16-alpine
+          
+          # Wait for database to be ready
+          timeout 30 bash -c 'until docker exec test-postgres pg_isready -U testuser; do sleep 1; done'
+
+      - name: Setup test environment
+        run: |
+          cp .env.example .env.test
+          echo "DATABASE_URL=postgresql://testuser:testpassword@localhost:5432/testdb" >> .env.test
+          echo "JWT_SECRET=test-jwt-secret-key-for-testing-only" >> .env.test
+          echo "NODE_ENV=test" >> .env.test
+
+      - name: Generate database schema
+        if: matrix.test-type == 'integration' || matrix.test-type == 'e2e'
+        run: |
+          npm run db:generate
+          npm run db:push
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+
+      - name: Run unit tests
+        if: matrix.test-type == 'unit'
+        run: npm run test:unit -- --coverage --reporter=junit --outputFile=test-results-unit.xml
+
+      - name: Run integration tests
+        if: matrix.test-type == 'integration'
+        run: npm run test:integration -- --reporter=junit --outputFile=test-results-integration.xml
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+
+      - name: Install Playwright browsers
+        if: matrix.test-type == 'e2e'
+        run: npx playwright install --with-deps
+
+      - name: Start application for E2E tests
+        if: matrix.test-type == 'e2e'
+        run: |
+          npm run build
+          npm run start &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://testuser:testpassword@localhost:5432/testdb
+          PORT: 3000
+
+      - name: Run E2E tests
+        if: matrix.test-type == 'e2e'
+        run: npm run test:e2e -- --reporter=junit --outputFile=test-results-e2e.xml
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+
+      - name: Run performance tests
+        if: matrix.test-type == 'performance'
+        run: |
+          cd tests/performance
+          npm install
+          npm run test:ci
+        env:
+          NODE_OPTIONS: --max-old-space-size=1024
+
+      - name: Run security tests
+        if: matrix.test-type == 'security'
+        run: npm run test:security -- --reporter=junit --outputFile=test-results-security.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.test-type }}
+          path: |
+            test-results-*.xml
+            coverage/
+            tests/performance/performance-results.xml
+            tests/performance/benchmark-results.json
+            test-results/
+            playwright-report/
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results (${{ matrix.test-type }})
+          path: 'test-results-*.xml'
+          reporter: java-junit
+
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run type checking
+        run: npm run typecheck
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Run dependency audit
+        run: npm audit --audit-level=moderate
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          languages: typescript, javascript
+
+  coverage:
+    name: Coverage Report
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          fail_ci_if_error: true
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  notify:
+    name: Notify Results
+    runs-on: ubuntu-latest
+    needs: [test, code-quality, security-scan, coverage]
+    if: always()
+
+    steps:
+      - name: Notify on success
+        if: needs.test.result == 'success' && needs.code-quality.result == 'success'
+        run: |
+          echo "✅ All tests passed successfully!"
+          echo "Test suite completed with success status"
+
+      - name: Notify on failure
+        if: needs.test.result == 'failure' || needs.code-quality.result == 'failure'
+        run: |
+          echo "❌ Tests failed!"
+          echo "Please check the test results and fix any issues"
+          exit 1

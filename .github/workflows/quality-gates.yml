@@ -1,0 +1,281 @@
+name: Quality Gates
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  quality-checks:
+    name: Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting with autofix
+        run: |
+          npm run lint -- --fix
+          if [[ `git status --porcelain` ]]; then
+            echo "❌ Linting issues found that were auto-fixed"
+            echo "Please commit the auto-fixed changes"
+            git diff
+            exit 1
+          fi
+
+      - name: Check code formatting
+        run: |
+          npm run format:check
+          if [ $? -ne 0 ]; then
+            echo "❌ Code formatting issues found"
+            echo "Run 'npm run format' to fix formatting"
+            exit 1
+          fi
+
+      - name: Type checking
+        run: npm run typecheck
+
+      - name: Check for circular dependencies
+        run: |
+          npx madge --circular --extensions ts,tsx packages/ apps/
+          if [ $? -eq 0 ]; then
+            echo "❌ Circular dependencies detected"
+            exit 1
+          fi
+
+  test-coverage:
+    name: Test Coverage Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests with coverage
+        run: npm run test:unit -- --coverage
+
+      - name: Check coverage thresholds
+        run: |
+          # Extract coverage percentages
+          STATEMENTS=$(grep -o 'Statements.*[0-9]*\.[0-9]*%' coverage/lcov-report/index.html | grep -o '[0-9]*\.[0-9]*' | head -1)
+          BRANCHES=$(grep -o 'Branches.*[0-9]*\.[0-9]*%' coverage/lcov-report/index.html | grep -o '[0-9]*\.[0-9]*' | head -1)
+          FUNCTIONS=$(grep -o 'Functions.*[0-9]*\.[0-9]*%' coverage/lcov-report/index.html | grep -o '[0-9]*\.[0-9]*' | head -1)
+          LINES=$(grep -o 'Lines.*[0-9]*\.[0-9]*%' coverage/lcov-report/index.html | grep -o '[0-9]*\.[0-9]*' | head -1)
+          
+          # Define minimum thresholds
+          MIN_STATEMENTS=90
+          MIN_BRANCHES=85
+          MIN_FUNCTIONS=90
+          MIN_LINES=90
+          
+          echo "Coverage Report:"
+          echo "Statements: ${STATEMENTS}% (minimum: ${MIN_STATEMENTS}%)"
+          echo "Branches: ${BRANCHES}% (minimum: ${MIN_BRANCHES}%)"
+          echo "Functions: ${FUNCTIONS}% (minimum: ${MIN_FUNCTIONS}%)"
+          echo "Lines: ${LINES}% (minimum: ${MIN_LINES}%)"
+          
+          # Check thresholds
+          if (( $(echo "${STATEMENTS} < ${MIN_STATEMENTS}" | bc -l) )); then
+            echo "❌ Statement coverage ${STATEMENTS}% is below minimum ${MIN_STATEMENTS}%"
+            exit 1
+          fi
+          
+          if (( $(echo "${BRANCHES} < ${MIN_BRANCHES}" | bc -l) )); then
+            echo "❌ Branch coverage ${BRANCHES}% is below minimum ${MIN_BRANCHES}%"
+            exit 1
+          fi
+          
+          if (( $(echo "${FUNCTIONS} < ${MIN_FUNCTIONS}" | bc -l) )); then
+            echo "❌ Function coverage ${FUNCTIONS}% is below minimum ${MIN_FUNCTIONS}%"
+            exit 1
+          fi
+          
+          if (( $(echo "${LINES} < ${MIN_LINES}" | bc -l) )); then
+            echo "❌ Line coverage ${LINES}% is below minimum ${MIN_LINES}%"
+            exit 1
+          fi
+          
+          echo "✅ All coverage thresholds met!"
+
+  security-checks:
+    name: Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run dependency audit
+        run: |
+          npm audit --audit-level=moderate
+          if [ $? -ne 0 ]; then
+            echo "❌ Security vulnerabilities found in dependencies"
+            echo "Please run 'npm audit fix' to resolve issues"
+            exit 1
+          fi
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Simple secret detection patterns
+          if grep -r -i "password\s*=\s*['\"][^'\"]*['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .; then
+            echo "❌ Potential hardcoded passwords found"
+            exit 1
+          fi
+          
+          if grep -r -i "api_key\s*=\s*['\"][^'\"]*['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .; then
+            echo "❌ Potential hardcoded API keys found"
+            exit 1
+          fi
+          
+          if grep -r -i "secret\s*=\s*['\"][^'\"]*['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" .; then
+            echo "❌ Potential hardcoded secrets found"
+            exit 1
+          fi
+
+      - name: Run security tests
+        run: npm run test:security
+
+  performance-checks:
+    name: Performance Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run performance tests
+        run: |
+          cd tests/performance
+          npm install
+          npm run test
+        env:
+          NODE_OPTIONS: --max-old-space-size=1024
+
+      - name: Check bundle size
+        run: |
+          npm run build:web
+          
+          # Check if bundle size is reasonable (adjust thresholds as needed)
+          JS_SIZE=$(find apps/web/.next/static/chunks -name "*.js" -exec wc -c {} + | tail -1 | awk '{print $1}')
+          CSS_SIZE=$(find apps/web/.next/static/css -name "*.css" -exec wc -c {} + | tail -1 | awk '{print $1}')
+          
+          MAX_JS_SIZE=2097152  # 2MB
+          MAX_CSS_SIZE=524288  # 512KB
+          
+          echo "Bundle Sizes:"
+          echo "JavaScript: $(( ${JS_SIZE} / 1024 )) KB (max: $(( ${MAX_JS_SIZE} / 1024 )) KB)"
+          echo "CSS: $(( ${CSS_SIZE} / 1024 )) KB (max: $(( ${MAX_CSS_SIZE} / 1024 )) KB)"
+          
+          if [ ${JS_SIZE} -gt ${MAX_JS_SIZE} ]; then
+            echo "❌ JavaScript bundle size exceeds maximum"
+            exit 1
+          fi
+          
+          if [ ${CSS_SIZE} -gt ${MAX_CSS_SIZE} ]; then
+            echo "❌ CSS bundle size exceeds maximum"
+            exit 1
+          fi
+          
+          echo "✅ Bundle sizes within acceptable limits"
+
+  accessibility-checks:
+    name: Accessibility Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build:web
+
+      - name: Run accessibility tests
+        run: |
+          # Install axe-core CLI
+          npm install -g @axe-core/cli
+          
+          # Start the application
+          cd apps/web && npm start &
+          sleep 10
+          
+          # Run axe accessibility tests
+          axe http://localhost:3000 --exit
+        env:
+          PORT: 3000
+
+  summary:
+    name: Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [quality-checks, test-coverage, security-checks, performance-checks, accessibility-checks]
+    if: always()
+
+    steps:
+      - name: Check all quality gates
+        run: |
+          echo "Quality Gate Results:"
+          echo "Quality Checks: ${{ needs.quality-checks.result }}"
+          echo "Test Coverage: ${{ needs.test-coverage.result }}"
+          echo "Security Checks: ${{ needs.security-checks.result }}"
+          echo "Performance Checks: ${{ needs.performance-checks.result }}"
+          echo "Accessibility Checks: ${{ needs.accessibility-checks.result }}"
+          
+          if [[ "${{ needs.quality-checks.result }}" == "success" && \
+                "${{ needs.test-coverage.result }}" == "success" && \
+                "${{ needs.security-checks.result }}" == "success" && \
+                "${{ needs.performance-checks.result }}" == "success" && \
+                "${{ needs.accessibility-checks.result }}" == "success" ]]; then
+            echo "✅ All quality gates passed!"
+          else
+            echo "❌ One or more quality gates failed"
+            exit 1
+          fi

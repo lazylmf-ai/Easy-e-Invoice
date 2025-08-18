@@ -1,0 +1,423 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="33" failures="7" errors="0" time="9.6">
+    <testsuite name="csv-import.performance.test.ts" timestamp="2025-08-18T06:28:01.652Z" hostname="Mengs-MacBook-Air.local" tests="11" failures="6" errors="0" skipped="0" time="1.172">
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Small File Performance (100 rows) &gt; should process 100 invoices within performance threshold" time="0.003">
+            <system-out>
+Small file performance:
+        Duration: 0.78ms
+        Memory: 0.18MB
+        Success: 0
+        Errors: 100
+
+            </system-out>
+            <failure message="expected +0 to be 100 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 100 // Object.is equality
+
+- Expected
++ Received
+
+- 100
++ 0
+
+ ❯ csv-import.performance.test.ts:115:35
+            </failure>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Small File Performance (100 rows) &gt; should maintain consistent performance across multiple small imports" time="0.004">
+            <system-out>
+Consistency test:
+        Average: 0.62ms
+        Max deviation: 0.14ms
+        All durations: 0.75, 0.58, 0.57, 0.59, 0.60ms
+
+            </system-out>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Medium File Performance (1000 rows) &gt; should process 1000 invoices within performance threshold" time="0.007">
+            <system-out>
+Medium file performance:
+        Duration: 6.67ms
+        Memory: 1.66MB
+        Success: 0
+        Errors: 1000
+
+            </system-out>
+            <failure message="expected +0 to be 1000 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 1000 // Object.is equality
+
+- Expected
++ Received
+
+- 1000
++ 0
+
+ ❯ csv-import.performance.test.ts:156:35
+            </failure>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Medium File Performance (1000 rows) &gt; should demonstrate linear scaling from small to medium files" time="0.005">
+            <system-out>
+Scaling analysis:
+        Small (100): 0.56ms
+        Medium (1000): 3.82ms
+        Scaling factor: 6.86x
+
+            </system-out>
+            <failure message="expected 6.855069809200824 to be greater than 8" type="AssertionError">
+AssertionError: expected 6.855069809200824 to be greater than 8
+ ❯ csv-import.performance.test.ts:171:29
+            </failure>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Large File Performance (10000 rows) &gt; should process 10000 invoices within performance threshold" time="0.058">
+            <system-out>
+Large file performance:
+        Duration: 49.09ms (0.05s)
+        Memory: 15.86MB
+        Success: 0
+        Errors: 10000
+        Throughput: 0.00 invoices/second
+
+            </system-out>
+            <failure message="expected +0 to be 10000 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 10000 // Object.is equality
+
+- Expected
++ Received
+
+- 10000
++ 0
+
+ ❯ csv-import.performance.test.ts:190:35
+            </failure>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Large File Performance (10000 rows) &gt; should handle memory efficiently for large files" time="0.055">
+            <system-out>
+Memory analysis:
+          Peak memory: -InfinityMB
+          Average memory: NaNMB
+          Final memory delta: 15.87MB
+
+            </system-out>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Error Handling Performance &gt; should handle validation errors efficiently" time="0.008">
+            <system-out>
+Error handling performance:
+        Duration: 7.45ms
+        Success: 0
+        Errors: 1000
+        Error rate: 100.0%
+
+            </system-out>
+            <failure message="expected +0 to be 500 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 500 // Object.is equality
+
+- Expected
++ Received
+
+- 500
++ 0
+
+ ❯ csv-import.performance.test.ts:254:35
+            </failure>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Concurrent Import Performance &gt; should handle multiple concurrent imports efficiently" time="0.01">
+            <system-out>
+Concurrent import performance:
+        Total time: 0.01ms
+        Total rows processed: 0
+        Average memory per import: 0.82MB
+        Throughput: 0.00 invoices/second
+
+            </system-out>
+            <failure message="expected +0 to be 1500 // Object.is equality" type="AssertionError">
+AssertionError: expected +0 to be 1500 // Object.is equality
+
+- Expected
++ Received
+
+- 1500
++ 0
+
+ ❯ csv-import.performance.test.ts:283:25
+            </failure>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Malaysian Validation Performance &gt; should validate Malaysian rules efficiently at scale" time="0">
+            <system-out>
+TIN validation performance:
+        Duration: 0.57ms
+        Iterations: 10000
+        Validations/second: 17691287
+        Valid: 6000, Invalid: 4000
+
+            </system-out>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Malaysian Validation Performance &gt; should calculate SST efficiently at scale" time="0.002">
+            <system-out>
+SST calculation performance:
+        Duration: 1.27ms
+        Iterations: 100000
+        Calculations/second: 78908475
+        Total SST: 30557121.58
+
+            </system-out>
+        </testcase>
+        <testcase classname="csv-import.performance.test.ts" name="CSV Import Performance Tests &gt; Memory Leak Detection &gt; should not leak memory during repeated imports" time="1.02">
+            <system-out>
+Memory snapshots: 71.50, 14.26, 14.53, 14.78, 15.03, 15.29, 15.54, 15.80, 16.06, 16.31MB
+Memory analysis:
+        First half average: 26.02MB
+        Second half average: 15.80MB
+        Increase: -10.22MB
+
+            </system-out>
+        </testcase>
+    </testsuite>
+    <testsuite name="export.performance.test.ts" timestamp="2025-08-18T06:28:01.656Z" hostname="Mengs-MacBook-Air.local" tests="12" failures="0" errors="0" skipped="0" time="8.131">
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; CSV Export Performance &gt; should export small dataset (100 invoices) efficiently" time="0.001">
+            <system-out>
+CSV Export (100 invoices):
+        Duration: 0.09ms
+        Memory: 0.06MB
+        Output size: 12.08KB
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; CSV Export Performance &gt; should export medium dataset (1000 invoices) efficiently" time="0.003">
+            <system-out>
+CSV Export (1000 invoices):
+        Duration: 0.43ms
+        Memory: 0.51MB
+        Output size: 120.48KB
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; CSV Export Performance &gt; should export large dataset (10000 invoices) efficiently" time="0.158">
+            <system-out>
+CSV Export (10000 invoices):
+        Duration: 138.66ms (0.14s)
+        Memory: -0.42MB
+        Output size: 1.18MB
+        Throughput: 72118.98 invoices/second
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; JSON Export Performance &gt; should export JSON format efficiently for different sizes" time="0.082">
+            <system-out>
+JSON Export (100 invoices):
+          Duration: 1.92ms
+          Memory: 0.26MB
+          Output size: 0.18MB
+JSON Export (1000 invoices):
+          Duration: 4.32ms
+          Memory: 2.47MB
+          Output size: 1.71MB
+JSON Export (10000 invoices):
+          Duration: 40.27ms
+          Memory: 24.83MB
+          Output size: 17.28MB
+JSON scaling factor (100x data): 20.95x time
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; MyInvois Export Performance &gt; should transform to MyInvois format efficiently" time="0.044">
+            <system-out>
+MyInvois Export (10 invoices):
+          Duration: 1.63ms
+          Memory: 0.15MB
+          Output size: 0.04MB
+
+MyInvois Export (100 invoices):
+          Duration: 3.40ms
+          Memory: 0.76MB
+          Output size: 0.43MB
+
+MyInvois Export (1000 invoices):
+          Duration: 33.69ms
+          Memory: -23.64MB
+          Output size: 4.26MB
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; MyInvois Export Performance &gt; should maintain XML-like structure integrity during export" time="0.004">
+            <system-out>
+MyInvois vs JSON size ratio: 2.46x
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; PDF Export Performance &gt; should generate single PDF efficiently" time="0.051">
+            <system-out>
+PDF Export (1 invoice):
+        Duration: 50.69ms
+        Memory: 0.05MB
+        Output size: 6.15KB
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; PDF Export Performance &gt; should handle batch PDF generation efficiently" time="5.104">
+            <system-out>
+PDF Batch Export (100 invoices):
+        Duration: 5102.72ms (5.10s)
+        Memory: 0.18MB
+        Output size: 0.60MB
+        Average per PDF: 51.03ms
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; PDF Export Performance &gt; should optimize memory usage for large PDF batches" time="2.547">
+            <system-out>
+PDF Memory Analysis:
+        Peak memory: 49.84MB
+        Average memory: 49.80MB
+        Final delta: 0.11MB
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; Concurrent Export Performance &gt; should handle multiple concurrent exports efficiently" time="0.039">
+            <system-out>
+Concurrent Export Performance:
+        Total time: 23.74ms
+        Total invoices: 1500
+        Formats: CSV, JSON, MyInvois
+        Average memory: 1.65MB
+        Throughput: 63174.41 invoices/second
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; Export Filtering Performance &gt; should apply complex filters efficiently" time="0.059">
+            <system-out>
+Filter + Export Performance:
+        Original count: 5000
+        Filtered count: 2028
+        Filter time: 7.49ms
+        Export time: 32.57ms
+        Total time: 40.07ms
+
+            </system-out>
+        </testcase>
+        <testcase classname="export.performance.test.ts" name="Export Performance Tests &gt; Memory Efficiency &gt; should handle streaming export for large datasets" time="0.037">
+            <system-out>
+Streaming Export Performance:
+        Total invoices: 10000
+        Batch size: 100
+        Total processing time: 3.81ms
+        Peak memory usage: 0.06MB
+        Total output size: 1.18MB
+
+            </system-out>
+        </testcase>
+    </testsuite>
+    <testsuite name="validation.performance.test.ts" timestamp="2025-08-18T06:28:01.657Z" hostname="Mengs-MacBook-Air.local" tests="10" failures="1" errors="0" skipped="0" time="0.027">
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Individual Validation Rule Performance &gt; should validate TIN format efficiently" time="0.004">
+            <system-out>
+TIN Validation Performance:
+        Iterations: 10000
+        Duration: 3.85ms
+        Average per validation: 0.000ms
+        Validations per second: 2596532
+        Valid: 5716, Invalid: 4284
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Individual Validation Rule Performance &gt; should calculate SST efficiently at scale" time="0.002">
+            <system-out>
+SST Calculation Performance:
+        Iterations: 100000
+        Duration: 1.76ms
+        Average per calculation: 0.0000ms
+        Calculations per second: 56773827
+        Correct: 90000, Incorrect: 10000
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Individual Validation Rule Performance &gt; should validate industry consolidation rules efficiently" time="0.002">
+            <system-out>
+Consolidation Validation Performance:
+        Iterations: 50000
+        Duration: 1.52ms
+        Average per check: 0.000ms
+        Checks per second: 32906449
+        Allowed: 20000, Disallowed: 30000
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Complete Invoice Validation Performance &gt; should validate single invoice efficiently" time="0.001">
+            <system-out>
+Single Invoice Validation Performance:
+        Iterations: 1000
+        Duration: 0.55ms
+        Average per validation: 0.001ms
+        Validations per second: 1834724
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Complete Invoice Validation Performance &gt; should validate complex invoice with multiple line items efficiently" time="0.001">
+            <system-out>
+Complex Invoice Validation Performance:
+        Line items: 20
+        Iterations: 500
+        Duration: 0.63ms
+        Average per validation: 0.001ms
+        Validations per second: 796813
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Complete Invoice Validation Performance &gt; should validate batch of invoices efficiently" time="0">
+            <system-out>
+Batch Validation Performance:
+        Batch size: 1000
+        Duration: 0.31ms (0.00s)
+        Average per invoice: 0.000ms
+        Invoices per second: 3234498
+        Total validation results: 0
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Validation Under Load &gt; should maintain performance under concurrent validation requests" time="0.002">
+            <system-out>
+Concurrent Validation Performance:
+        Concurrent batches: 5
+        Total invoices: 1000
+        Total time: 0.00ms
+        Average batch time: 0.09ms
+        Max batch time: 0.14ms
+        Overall throughput: 216216216 invoices/second
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Validation Under Load &gt; should handle validation of invoices with errors efficiently" time="0.005">
+            <system-out>
+Error Validation Performance:
+        Iterations: 2000
+        Duration: 1.49ms
+        Average per validation: 0.001ms
+        Total errors found: 2000
+        Error rate: 1.00 errors/invoice
+
+            </system-out>
+            <failure message="expected 2000 to be greater than 2000" type="AssertionError">
+AssertionError: expected 2000 to be greater than 2000
+ ❯ validation.performance.test.ts:452:27
+            </failure>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Memory Usage During Validation &gt; should maintain efficient memory usage during large batch validation" time="0.005">
+            <system-out>
+Memory Usage Analysis:
+        Batch size: 5000
+        Memory delta: 12.50MB
+        Peak memory: -InfinityMB
+        Average memory: NaNMB
+        Memory per validation: 2.56KB
+
+            </system-out>
+        </testcase>
+        <testcase classname="validation.performance.test.ts" name="Validation Performance Tests &gt; Validation Caching Performance &gt; should benefit from TIN validation caching" time="0.005">
+            <system-out>
+TIN Validation Caching Performance:
+        Iterations: 10000
+        Unique TINs: 5
+        Without cache: 3.31ms
+        With cache: 0.73ms
+        Improvement: 4.56x faster
+        Cache hit rate: 100.0%
+
+            </system-out>
+        </testcase>
+    </testsuite>
+</testsuites>

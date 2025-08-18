@@ -1,11 +1,11 @@
 import { Context, Next } from 'hono';
-import { jwtVerify } from 'jose';
+import { AuthService } from '../services/auth-service';
 import { Env } from '../index';
 
 export interface JWTPayload {
   userId: string;
-  orgId: string;
   email: string;
+  type: string;
   iat: number;
   exp: number;
 }
@@ -24,11 +24,35 @@ export async function authMiddleware(c: Context, next: Next) {
   const token = authorization.slice(7);
   
   try {
-    const secret = new TextEncoder().encode((c.env as any).JWT_SECRET);
-    const { payload } = await jwtVerify(token, secret);
+    const env = c.env as Env;
+    const authService = new AuthService({
+      JWT_SECRET: env.JWT_SECRET,
+      RESEND_API_KEY: env.RESEND_API_KEY,
+      FRONTEND_URL: env.FRONTEND_URL,
+    });
+    
+    const payload = await authService.verifyToken(token);
+    
+    // Only allow auth tokens for protected endpoints
+    if (payload.type !== 'auth') {
+      return c.json({
+        error: 'Invalid Token',
+        message: 'This token type is not valid for authentication',
+        timestamp: new Date().toISOString(),
+      }, 401);
+    }
+    
+    // Check if token is expired
+    if (authService.isTokenExpired(payload)) {
+      return c.json({
+        error: 'Token Expired',
+        message: 'Your session has expired. Please log in again.',
+        timestamp: new Date().toISOString(),
+      }, 401);
+    }
     
     // Validate required JWT fields
-    if (!payload.userId || !payload.orgId || !payload.email) {
+    if (!payload.userId || !payload.email) {
       return c.json({
         error: 'Invalid Token',
         message: 'Token missing required fields',
@@ -55,10 +79,16 @@ export async function optionalAuthMiddleware(c: Context, next: Next) {
     const token = authorization.slice(7);
     
     try {
-      const secret = new TextEncoder().encode((c.env as any).JWT_SECRET);
-      const { payload } = await jwtVerify(token, secret);
+      const env = c.env as Env;
+      const authService = new AuthService({
+        JWT_SECRET: env.JWT_SECRET,
+        RESEND_API_KEY: env.RESEND_API_KEY,
+        FRONTEND_URL: env.FRONTEND_URL,
+      });
       
-      if (payload.userId && payload.orgId && payload.email) {
+      const payload = await authService.verifyToken(token);
+      
+      if (payload.type === 'auth' && payload.userId && payload.email && !authService.isTokenExpired(payload)) {
         c.set('user', payload as any);
       }
     } catch (error) {

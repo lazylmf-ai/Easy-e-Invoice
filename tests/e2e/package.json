@@ -1,0 +1,22 @@
+{
+  "name": "@einvoice/e2e-tests",
+  "version": "1.0.0",
+  "description": "End-to-end tests for Easy e-Invoice",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:headless": "E2E_HEADLESS=true vitest",
+    "test:firefox": "E2E_BROWSER=firefox vitest",
+    "test:webkit": "E2E_BROWSER=webkit vitest",
+    "test:screenshots": "E2E_SCREENSHOTS=true vitest",
+    "test:ci": "E2E_HEADLESS=true E2E_SCREENSHOTS=true vitest --reporter=junit --outputFile=test-results.xml"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0",
+    "playwright": "^1.40.0",
+    "@playwright/test": "^1.40.0",
+    "@vitest/ui": "^1.0.0",
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

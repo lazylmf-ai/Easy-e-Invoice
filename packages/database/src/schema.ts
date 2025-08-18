@@ -25,11 +25,20 @@ export const invoiceTemplates = pgTable('invoice_templates', {
   orgId: uuid('org_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
   name: varchar('name', { length: 255 }).notNull(),
   description: text('description'),
+  category: varchar('category', { length: 50 }).default('general'),
+  isPublic: boolean('is_public').default(false),
   templateData: jsonb('template_data').notNull(),
   lineTemplates: jsonb('line_templates').default([]),
+  version: integer('version').default(1),
   usageCount: integer('usage_count').default(0),
+  lastUsedAt: timestamp('last_used_at'),
   createdAt: timestamp('created_at').defaultNow(),
-});
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  orgNameUnique: unique().on(table.orgId, table.name),
+  categoryIndex: index('idx_templates_category').on(table.category),
+  usageIndex: index('idx_templates_usage').on(table.usageCount),
+}));
 
 // Buyers table - Customer database
 export const buyers = pgTable('buyers', {

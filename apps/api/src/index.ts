@@ -8,6 +8,8 @@ import { authRoutes } from './routes/auth';
 import { organizationRoutes } from './routes/organizations';
 import { invoiceRoutes } from './routes/invoices';
 import { importRoutes } from './routes/import';
+import { exportRoutes } from './routes/export';
+import { templateRoutes } from './routes/templates';
 
 export interface Env {
   DATABASE_URL: string;
@@ -52,6 +54,8 @@ app.route('/auth', authRoutes);
 app.route('/org', organizationRoutes);
 app.route('/invoices', invoiceRoutes);
 app.route('/import', importRoutes);
+app.route('/export', exportRoutes);
+app.route('/templates', templateRoutes);
 
 // Error handling
 app.onError((err, c) => {

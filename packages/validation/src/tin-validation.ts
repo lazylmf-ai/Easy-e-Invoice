@@ -42,8 +42,8 @@ export function validateTinFormat(tin: string): TinValidationResult {
     warnings: []
   };
 
-  // Basic validation
-  if (!tin) {
+  // Basic validation - handle non-string inputs
+  if (!tin || typeof tin !== 'string') {
     result.errors.push('TIN is required');
     return result;
   }
