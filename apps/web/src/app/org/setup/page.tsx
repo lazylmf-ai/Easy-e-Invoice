@@ -3,188 +3,92 @@
 import { useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';
 import { useRouter } from 'next/navigation';
+import { api } from '@/lib/api';
+import OrganizationSetupWizard from '@/components/org/OrganizationSetupWizard';
 
 export default function OrganizationSetupPage() {
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    tin: '',
-    industryCode: '',
-    isSstRegistered: false,
-    sstNumber: '',
-    contactPerson: '',
-    phone: '',
-    address: {
-      line1: '',
-      line2: '',
-      city: '',
-      state: '',
-      postcode: '',
-      country: 'MY',
-    },
-  });
+  const [error, setError] = useState('');
   
   const { refreshUser } = useAuth();
   const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSetupComplete = async (organizationData: any) => {
     setIsLoading(true);
+    setError('');
 
     try {
-      // TODO: Implement organization setup API call
-      console.log('Setting up organization:', formData);
+      // Call the organization setup API
+      const response = await api.organization.setup(organizationData);
       
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      await refreshUser();
-      router.push('/dashboard');
-    } catch (error) {
+      if (response.success) {
+        // Refresh user data to get updated organization info
+        await refreshUser();
+        
+        // Redirect to dashboard
+        router.push('/dashboard');
+      } else {
+        throw new Error(response.message || 'Failed to setup organization');
+      }
+    } catch (error: any) {
       console.error('Organization setup failed:', error);
+      setError(error.message || 'Failed to setup organization. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
-    if (field.startsWith('address.')) {
-      const addressField = field.split('.')[1];
-      setFormData(prev => ({
-        ...prev,
-        address: {
-          ...prev.address,
-          [addressField]: value,
-        },
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value,
-      }));
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
+          <div className="mx-auto h-16 w-16 bg-primary-600 rounded-lg flex items-center justify-center mb-4">
+            <span className="text-white font-bold text-2xl">🇲🇾</span>
+          </div>
           <h1 className="text-3xl font-bold text-gray-900">Organization Setup</h1>
-          <p className="mt-2 text-gray-600">
-            Set up your organization for Malaysian e-Invoice compliance
+          <p className="mt-2 text-gray-600 max-w-2xl mx-auto">
+            Set up your organization for Malaysian e-Invoice compliance. 
+            This will enable you to create, validate, and export compliant e-Invoices according to LHDN requirements.
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-medium">Basic Information</h3>
-            </div>
-            <div className="card-body space-y-6">
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Company Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="input mt-1"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Malaysian TIN *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="C1234567890 or 123456789012"
-                    className="input mt-1"
-                    value={formData.tin}
-                    onChange={(e) => handleInputChange('tin', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Industry Code (MSIC)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g., 62010"
-                    className="input mt-1"
-                    value={formData.industryCode}
-                    onChange={(e) => handleInputChange('industryCode', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    Contact Person *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="input mt-1"
-                    value={formData.contactPerson}
-                    onChange={(e) => handleInputChange('contactPerson', e.target.value)}
-                  />
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Setup Error</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
                 </div>
               </div>
             </div>
           </div>
+        )}
 
-          {/* SST Information */}
-          <div className="card">
-            <div className="card-header">
-              <h3 className="text-lg font-medium">SST Registration</h3>
-            </div>
-            <div className="card-body space-y-6">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="sstRegistered"
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
-                  checked={formData.isSstRegistered}
-                  onChange={(e) => handleInputChange('isSstRegistered', e.target.checked)}
-                />
-                <label htmlFor="sstRegistered" className="ml-2 block text-sm text-gray-900">
-                  My business is registered for SST (6% Services and Sales Tax)
-                </label>
-              </div>
-              
-              {formData.isSstRegistered && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">
-                    SST Registration Number
-                  </label>
-                  <input
-                    type="text"
-                    className="input mt-1"
-                    value={formData.sstNumber}
-                    onChange={(e) => handleInputChange('sstNumber', e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          </div>
+        <div className="bg-white shadow-sm rounded-lg p-6">
+          <OrganizationSetupWizard 
+            onComplete={handleSetupComplete}
+            isLoading={isLoading}
+          />
+        </div>
 
-          {/* Submit */}
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="btn-primary"
-            >
-              {isLoading ? 'Setting up...' : 'Complete Setup'}
-            </button>
+        <div className="mt-8 text-center">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <h4 className="text-sm font-medium text-blue-800 mb-2">Need Help?</h4>
+            <p className="text-sm text-blue-700">
+              If you need assistance with your TIN, industry codes, or SST registration, 
+              contact our support team at{' '}
+              <a href="mailto:support@easyeinvoice.my" className="underline">
+                support@easyeinvoice.my
+              </a>
+            </p>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import InvoiceForm from '@/components/invoices/InvoiceForm';
@@ -10,8 +10,29 @@ export default function CreateInvoicePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationResults, setValidationResults] = useState<any>(null);
+  const [templateData, setTemplateData] = useState<any>(null);
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const templateId = searchParams.get('template');
+    if (templateId) {
+      loadTemplate(templateId);
+    }
+  }, [searchParams]);
+
+  const loadTemplate = async (templateId: string) => {
+    try {
+      const response = await api.templates.use(templateId);
+      if (response.template) {
+        setTemplateData(response.template.templateData);
+      }
+    } catch (error: any) {
+      console.error('Failed to load template:', error);
+      setError('Failed to load template');
+    }
+  };
 
   const handleSubmit = async (data: any) => {
     if (!user?.hasCompletedOnboarding) {
@@ -168,6 +189,7 @@ export default function CreateInvoicePage() {
           onSubmit={handleSubmit}
           onValidate={handleValidate}
           isLoading={isLoading}
+          templateData={templateData}
           mode="create"
         />
       </div>

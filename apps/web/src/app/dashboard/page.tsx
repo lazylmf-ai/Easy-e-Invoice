@@ -69,7 +69,7 @@ export default function DashboardPage() {
               </p>
 
               {/* Quick Actions */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 mb-8">
                 <button
                   onClick={() => router.push('/invoices/create')}
                   className="bg-primary-600 hover:bg-primary-700 text-white p-6 rounded-lg shadow transition-colors"
@@ -92,6 +92,22 @@ export default function DashboardPage() {
                 >
                   <div className="text-xl font-semibold mb-2">Import CSV</div>
                   <div className="text-sm opacity-90">Bulk import invoices</div>
+                </button>
+                
+                <button
+                  onClick={() => router.push('/invoices/export')}
+                  className="bg-purple-600 hover:bg-purple-700 text-white p-6 rounded-lg shadow transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Export Data</div>
+                  <div className="text-sm opacity-90">PDF, JSON, CSV exports</div>
+                </button>
+                
+                <button
+                  onClick={() => router.push('/templates')}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white p-6 rounded-lg shadow transition-colors"
+                >
+                  <div className="text-xl font-semibold mb-2">Templates</div>
+                  <div className="text-sm opacity-90">Manage invoice templates</div>
                 </button>
                 
                 <button

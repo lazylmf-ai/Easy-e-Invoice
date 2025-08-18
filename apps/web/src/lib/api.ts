@@ -239,6 +239,149 @@ export const api = {
       }),
   },
 
+  // Export endpoints
+  export: {
+    generatePDF: (data: {
+      invoiceIds: string[];
+      includeQrCode?: boolean;
+      includeWatermark?: boolean;
+      watermarkText?: string;
+      format?: 'A4' | 'A5';
+      language?: 'en' | 'ms';
+    }) =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/pdf`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(data),
+      }),
+
+    generateJSON: (data: {
+      invoiceIds: string[];
+      format?: 'myinvois' | 'standard';
+      includeLineItems?: boolean;
+      minifyOutput?: boolean;
+    }) =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/json`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(data),
+      }),
+
+    generateCSV: (data: {
+      invoiceIds: string[];
+      includeHeaders?: boolean;
+      includeLineItems?: boolean;
+      dateFormat?: 'ISO' | 'DD/MM/YYYY' | 'MM/DD/YYYY';
+    }) =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/csv`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+        body: JSON.stringify(data),
+      }),
+
+    startBatchExport: (data: {
+      exportType: 'pdf' | 'json' | 'csv';
+      invoiceIds: string[];
+      options?: any;
+      notifyOnComplete?: boolean;
+    }) =>
+      apiRequest({
+        method: 'POST',
+        url: '/export/batch',
+        data,
+      }),
+
+    getJobStatus: (jobId: string) =>
+      apiRequest({
+        method: 'GET',
+        url: `/export/jobs/${jobId}`,
+      }),
+  },
+
+  // Template endpoints
+  templates: {
+    list: (params?: {
+      page?: number;
+      limit?: number;
+      category?: string;
+      search?: string;
+      includePublic?: boolean;
+      sortBy?: 'name' | 'createdAt' | 'usageCount';
+      sortOrder?: 'asc' | 'desc';
+    }) =>
+      apiRequest({
+        method: 'GET',
+        url: '/templates',
+        params,
+      }),
+
+    get: (id: string) =>
+      apiRequest({
+        method: 'GET',
+        url: `/templates/${id}`,
+      }),
+
+    create: (data: {
+      name: string;
+      description?: string;
+      category?: 'general' | 'professional-services' | 'retail' | 'manufacturing' | 'hospitality' | 'technology';
+      isPublic?: boolean;
+      templateData: any;
+    }) =>
+      apiRequest({
+        method: 'POST',
+        url: '/templates',
+        data,
+      }),
+
+    update: (id: string, data: {
+      name?: string;
+      description?: string;
+      category?: 'general' | 'professional-services' | 'retail' | 'manufacturing' | 'hospitality' | 'technology';
+      isPublic?: boolean;
+      templateData?: any;
+    }) =>
+      apiRequest({
+        method: 'PUT',
+        url: `/templates/${id}`,
+        data,
+      }),
+
+    delete: (id: string) =>
+      apiRequest({
+        method: 'DELETE',
+        url: `/templates/${id}`,
+      }),
+
+    use: (id: string) =>
+      apiRequest({
+        method: 'POST',
+        url: `/templates/${id}/use`,
+      }),
+
+    getPresets: (category?: string) =>
+      apiRequest({
+        method: 'GET',
+        url: '/templates/presets/industry',
+        params: category ? { category } : undefined,
+      }),
+
+    getAnalytics: () =>
+      apiRequest({
+        method: 'GET',
+        url: '/templates/analytics/usage',
+      }),
+  },
+
   // Health check
   health: () =>
     apiRequest({

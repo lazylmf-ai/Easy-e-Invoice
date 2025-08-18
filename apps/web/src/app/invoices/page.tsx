@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
-import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
 
 interface Invoice {
   id: string;
@@ -175,6 +175,13 @@ export default function InvoicesPage() {
               </p>
             </div>
             <div className="flex items-center space-x-3">
+              <button
+                onClick={() => router.push('/invoices/export')}
+                className="btn-secondary flex items-center"
+              >
+                <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
+                Export
+              </button>
               <button
                 onClick={() => router.push('/invoices/import')}
                 className="btn-secondary flex items-center"
