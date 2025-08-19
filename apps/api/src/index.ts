@@ -10,12 +10,16 @@ import { invoiceRoutes } from './routes/invoices';
 import { importRoutes } from './routes/import';
 import { exportRoutes } from './routes/export';
 import { templateRoutes } from './routes/templates';
+import { initializeSentry, withSentry, captureInvoiceError } from './lib/sentry';
 
 export interface Env {
   DATABASE_URL: string;
   JWT_SECRET: string;
   RESEND_API_KEY: string;
   FRONTEND_URL?: string;
+  SENTRY_DSN?: string;
+  SENTRY_ENVIRONMENT?: string;
+  NODE_ENV?: string;
 }
 
 const app = new Hono();
@@ -57,13 +61,52 @@ app.route('/import', importRoutes);
 app.route('/export', exportRoutes);
 app.route('/templates', templateRoutes);
 
-// Error handling
+// Error handling with Sentry integration
 app.onError((err, c) => {
-  console.error('API Error:', err);
+  const env = c.env as Env;
+  
+  // Initialize Sentry if available
+  if (env.SENTRY_DSN) {
+    try {
+      initializeSentry(env);
+      
+      // Capture Malaysian e-Invoice specific context
+      captureInvoiceError(err, {
+        operation: 'api_request',
+        invoiceId: c.req.query('invoiceId'),
+        organizationId: c.req.query('organizationId'),
+      });
+    } catch (sentryError) {
+      console.warn('Failed to initialize Sentry:', sentryError);
+    }
+  }
+
+  console.error('API Error:', {
+    message: err.message,
+    stack: err.stack,
+    path: c.req.path,
+    method: c.req.method,
+    timestamp: new Date().toISOString(),
+  });
+
+  // Enhanced error response for Malaysian e-Invoice context
+  const isValidationError = err.message.includes('validation') || err.message.includes('TIN');
+  const isComplianceError = err.message.includes('compliance') || err.message.includes('LHDN');
+  
   return c.json({
     error: 'Internal Server Error',
-    message: err.message,
+    message: process.env.NODE_ENV === 'production' 
+      ? (isValidationError ? 'Malaysian e-Invoice validation failed' :
+         isComplianceError ? 'LHDN compliance check failed' : 
+         'An error occurred processing your request')
+      : err.message,
+    code: isValidationError ? 'VALIDATION_ERROR' : 
+          isComplianceError ? 'COMPLIANCE_ERROR' : 'INTERNAL_ERROR',
     timestamp: new Date().toISOString(),
+    context: {
+      country: 'MY',
+      compliance_system: 'LHDN',
+    },
   }, 500);
 });
 

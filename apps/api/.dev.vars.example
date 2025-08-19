@@ -1,0 +1,15 @@
+# Database Configuration
+DATABASE_URL=postgresql://username:password@localhost:5432/einvoice
+
+# JWT Configuration
+JWT_SECRET=your-jwt-secret-key
+
+# Email Configuration (Resend)
+RESEND_API_KEY=your-resend-api-key
+
+# Sentry Configuration
+SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+SENTRY_ENVIRONMENT=development
+
+# Environment
+NODE_ENV=development

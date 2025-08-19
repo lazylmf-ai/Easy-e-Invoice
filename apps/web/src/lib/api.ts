@@ -186,6 +186,12 @@ export const api = {
         method: 'POST',
         url: `/invoices/${id}/validate`,
       }),
+    
+    duplicate: (id: string) =>
+      apiRequest({
+        method: 'POST',
+        url: `/invoices/${id}/duplicate`,
+      }),
   },
 
   // Import endpoints
@@ -305,6 +311,14 @@ export const api = {
         method: 'GET',
         url: `/export/jobs/${jobId}`,
       }),
+    
+    pdf: (invoiceId: string) =>
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/pdf/${invoiceId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
+        },
+      }),
   },
 
   // Template endpoints
@@ -379,6 +393,15 @@ export const api = {
       apiRequest({
         method: 'GET',
         url: '/templates/analytics/usage',
+      }),
+  },
+
+  // Dashboard endpoints
+  dashboard: {
+    getMetrics: () =>
+      apiRequest({
+        method: 'GET',
+        url: '/dashboard/metrics',
       }),
   },
 

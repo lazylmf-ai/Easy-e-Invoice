@@ -1,5 +1,6 @@
 // Quick test to verify validation functionality
-import { validateInvoice, calculateValidationScore, tinSchema, invoiceSchema } from './index';
+import { validateInvoice, calculateValidationScore, invoiceSchema } from './index';
+import { validateTinFormat } from './tin-validation';
 
 // Test data
 const mockOrg = {
@@ -45,20 +46,28 @@ const mockLines = [
 // Test validation
 console.log('Testing Malaysian e-Invoice validation...');
 
-// Test TIN schema
+// Test TIN validation
 try {
-  const validTin = tinSchema.parse('C1234567890');
-  console.log('✅ Valid TIN format test passed:', validTin);
+  const validTinResult = validateTinFormat('C1234567890');
+  if (validTinResult.isValid) {
+    console.log('✅ Valid TIN format test passed:', validTinResult);
+  } else {
+    console.error('❌ TIN validation failed:', validTinResult.errors);
+  }
 } catch (error) {
   console.error('❌ TIN validation failed:', error);
 }
 
 // Test invalid TIN
 try {
-  tinSchema.parse('INVALID');
-  console.log('❌ Invalid TIN should have failed');
+  const invalidTinResult = validateTinFormat('INVALID');
+  if (!invalidTinResult.isValid) {
+    console.log('✅ Invalid TIN correctly rejected');
+  } else {
+    console.log('❌ Invalid TIN should have failed');
+  }
 } catch (error) {
-  console.log('✅ Invalid TIN correctly rejected');
+  console.log('✅ Invalid TIN correctly rejected with error');
 }
 
 // Test invoice validation

@@ -5,59 +5,70 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { 
+  invoiceCreateSchema, 
+  lineItemCreateSchema,
+  SUPPORTED_CURRENCIES,
+  E_INVOICE_TYPES,
+  calculateLineTotal,
+  calculateSstAmount,
+  calculateGrandTotal,
+  type InvoiceCreate,
+  type LineItemCreate
+} from '@einvoice/validation';
 
-// Mock validation schemas (will be replaced with actual validation package)
-const invoiceSchema = z.object({
-  invoiceNumber: z.string().min(1, 'Invoice number is required'),
-  issueDate: z.string().min(1, 'Issue date is required'),
-  dueDate: z.string().optional(),
-  currency: z.string().default('MYR'),
-  exchangeRate: z.string().default('1.000000'),
-  eInvoiceType: z.enum(['01', '02', '03', '04']).default('01'),
-  isConsolidated: z.boolean().default(false),
-  consolidationPeriod: z.string().optional(),
-  referenceInvoiceNumber: z.string().optional(),
-  notes: z.string().optional(),
-  internalRef: z.string().optional(),
-  poNumber: z.string().optional(),
-});
-
-const lineItemSchema = z.object({
-  itemDescription: z.string().min(1, 'Description is required'),
-  itemSku: z.string().optional(),
-  quantity: z.string().min(1, 'Quantity is required'),
-  unitPrice: z.string().min(1, 'Unit price is required'),
-  discountAmount: z.string().default('0.00'),
-  sstRate: z.string().default('0.00'),
-  taxExemptionCode: z.string().optional(),
-});
-
+// Form schema combining invoice and line items
 const formSchema = z.object({
-  invoice: invoiceSchema,
-  lineItems: z.array(lineItemSchema).min(1, 'At least one line item is required'),
+  invoice: invoiceCreateSchema,
+  lineItems: z.array(lineItemCreateSchema).min(1, 'At least one line item is required'),
   buyerId: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
-const CURRENCIES = [
-  { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-];
+// Enhanced currency data with symbols
+const CURRENCY_DATA = SUPPORTED_CURRENCIES.map(code => {
+  const symbols: Record<string, string> = {
+    'MYR': 'RM',
+    'USD': '$',
+    'EUR': '€',
+    'GBP': '£',
+    'SGD': 'S$',
+    'JPY': '¥',
+    'CNY': '¥',
+    'AUD': 'A$',
+    'CAD': 'C$',
+    'CHF': 'CHF'
+  };
+  
+  const names: Record<string, string> = {
+    'MYR': 'Malaysian Ringgit',
+    'USD': 'US Dollar',
+    'EUR': 'Euro',
+    'GBP': 'British Pound',
+    'SGD': 'Singapore Dollar',
+    'JPY': 'Japanese Yen',
+    'CNY': 'Chinese Yuan',
+    'AUD': 'Australian Dollar',
+    'CAD': 'Canadian Dollar',
+    'CHF': 'Swiss Franc'
+  };
+  
+  return {
+    code,
+    name: names[code] || code,
+    symbol: symbols[code] || code
+  };
+});
 
-const E_INVOICE_TYPES = [
-  { value: '01', label: 'Invoice' },
-  { value: '02', label: 'Credit Note' },
-  { value: '03', label: 'Debit Note' },
-  { value: '04', label: 'Refund Note' },
-];
+const INVOICE_TYPE_DATA = Object.entries(E_INVOICE_TYPES).map(([value, label]) => ({
+  value,
+  label
+}));
 
 interface InvoiceFormProps {
   initialData?: Partial<FormData>;
+  templateData?: any;
   onSubmit: (data: FormData) => void;
   onValidate?: (data: FormData) => void;
   isLoading?: boolean;
@@ -66,6 +77,7 @@ interface InvoiceFormProps {
 
 export default function InvoiceForm({
   initialData,
+  templateData,
   onSubmit,
   onValidate,
   isLoading = false,
@@ -87,20 +99,28 @@ export default function InvoiceForm({
     formState: { errors, isValid }
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: initialData || {
+    defaultValues: templateData || initialData || {
       invoice: {
+        invoiceNumber: '',
         currency: 'MYR',
         exchangeRate: '1.000000',
         eInvoiceType: '01',
         isConsolidated: false,
         issueDate: new Date().toISOString().split('T')[0],
+        subtotal: '0.00',
+        sstAmount: '0.00',
+        totalDiscount: '0.00',
+        grandTotal: '0.00',
+        status: 'draft',
       },
       lineItems: [{
         itemDescription: '',
         quantity: '1',
         unitPrice: '0.00',
         discountAmount: '0.00',
+        lineTotal: '0.00',
         sstRate: '0.00',
+        sstAmount: '0.00',
       }],
     },
     mode: 'onChange'
@@ -113,33 +133,38 @@ export default function InvoiceForm({
 
   const watchedFields = watch();
 
-  // Calculate line totals and invoice totals
+  // Calculate line totals and invoice totals using validation package functions
   const calculateTotals = useCallback(() => {
-    let subtotal = 0;
-    let totalDiscount = 0;
-    let totalSst = 0;
+    if (!watchedFields.lineItems) return;
 
-    watchedFields.lineItems?.forEach((item, index) => {
+    let subtotal = 0;
+    let totalSst = 0;
+    let totalDiscount = 0;
+
+    watchedFields.lineItems.forEach((item, index) => {
       const quantity = parseFloat(item.quantity || '0');
       const unitPrice = parseFloat(item.unitPrice || '0');
       const discount = parseFloat(item.discountAmount || '0');
       const sstRate = parseFloat(item.sstRate || '0');
 
-      const lineTotal = (quantity * unitPrice) - discount;
-      const lineSst = (lineTotal * sstRate) / 100;
+      // Use validation package calculation functions
+      const lineTotal = calculateLineTotal(quantity, unitPrice, discount);
+      const sstAmount = calculateSstAmount(lineTotal, sstRate);
 
-      subtotal += lineTotal;
-      totalDiscount += discount;
-      totalSst += lineSst;
-
-      // Update calculated fields
+      // Update calculated fields in form
       setValue(`lineItems.${index}.lineTotal`, lineTotal.toFixed(2));
-      setValue(`lineItems.${index}.sstAmount`, lineSst.toFixed(2));
+      setValue(`lineItems.${index}.sstAmount`, sstAmount.toFixed(2));
+
+      // Accumulate totals
+      subtotal += lineTotal;
+      totalSst += sstAmount;
+      totalDiscount += discount;
     });
 
-    const grandTotal = subtotal + totalSst;
-
-    // Update invoice totals
+    // Calculate grand total
+    const grandTotal = calculateGrandTotal(subtotal, 0, totalSst); // No additional discount at invoice level
+    
+    // Update invoice totals in form
     setValue('invoice.subtotal', subtotal.toFixed(2));
     setValue('invoice.sstAmount', totalSst.toFixed(2));
     setValue('invoice.totalDiscount', totalDiscount.toFixed(2));
@@ -164,7 +189,9 @@ export default function InvoiceForm({
       quantity: '1',
       unitPrice: '0.00',
       discountAmount: '0.00',
+      lineTotal: '0.00',
       sstRate: '0.00',
+      sstAmount: '0.00',
     });
   };
 
@@ -186,6 +213,78 @@ export default function InvoiceForm({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
+      {/* Buyer Information */}
+      {!watchedFields.invoice?.isConsolidated && (
+        <div className="bg-white shadow-sm rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-6">Buyer Information</h3>
+          
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Buyer Name *
+              </label>
+              <input
+                type="text"
+                {...register('invoice.buyerName')}
+                className="input mt-1"
+                placeholder="Customer/Buyer name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Buyer TIN
+              </label>
+              <input
+                type="text"
+                {...register('invoice.buyerTin')}
+                className="input mt-1"
+                placeholder="C1234567890 or 123456789012"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Required for B2B transactions
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                {...register('invoice.buyerEmail')}
+                className="input mt-1"
+                placeholder="buyer@company.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700">
+                Phone
+              </label>
+              <input
+                type="tel"
+                {...register('invoice.buyerPhone')}
+                className="input mt-1"
+                placeholder="+60123456789"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Address
+              </label>
+              <textarea
+                {...register('invoice.buyerAddress')}
+                rows={2}
+                className="input mt-1"
+                placeholder="Complete buyer address"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Invoice Header */}
       <div className="bg-white shadow-sm rounded-lg p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-6">Invoice Information</h3>
@@ -214,7 +313,7 @@ export default function InvoiceForm({
               {...register('invoice.eInvoiceType')}
               className="input mt-1"
             >
-              {E_INVOICE_TYPES.map(type => (
+              {INVOICE_TYPE_DATA.map(type => (
                 <option key={type.value} value={type.value}>
                   {type.label}
                 </option>
@@ -255,7 +354,7 @@ export default function InvoiceForm({
               {...register('invoice.currency')}
               className="input mt-1"
             >
-              {CURRENCIES.map(currency => (
+              {CURRENCY_DATA.map(currency => (
                 <option key={currency.code} value={currency.code}>
                   {currency.code} - {currency.name}
                 </option>
@@ -303,7 +402,7 @@ export default function InvoiceForm({
                 </label>
                 <input
                   type="month"
-                  {...register('invoice.consolidationPeriod')}
+                  {...register('invoice.metadata.consolidationPeriod')}
                   className="input mt-1"
                 />
               </div>
@@ -317,9 +416,9 @@ export default function InvoiceForm({
               </label>
               <input
                 type="text"
-                {...register('invoice.referenceInvoiceNumber')}
+                {...register('invoice.referenceInvoiceId')}
                 className="input mt-1"
-                placeholder="Original invoice number"
+                placeholder="Original invoice ID"
               />
               <p className="mt-1 text-xs text-gray-500">
                 Required for credit and debit notes

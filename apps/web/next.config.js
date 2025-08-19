@@ -1,10 +1,25 @@
-const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
+// Conditionally import dependencies only when available
+let BundleAnalyzerPlugin;
+let withSentryConfig;
+
+try {
+  BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+} catch (error) {
+  // webpack-bundle-analyzer is not installed - skip analysis
+  BundleAnalyzerPlugin = null;
+}
+
+try {
+  withSentryConfig = require('@sentry/nextjs').withSentryConfig;
+} catch (error) {
+  // @sentry/nextjs is not installed - skip Sentry
+  withSentryConfig = null;
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Experimental features
   experimental: {
-    appDir: true,
     optimizeCss: true,
     optimizePackageImports: [
       '@heroicons/react',
@@ -15,7 +30,8 @@ const nextConfig = {
       '@hookform/resolvers',
       'date-fns'
     ],
-    serverComponentsExternalPackages: ['@einvoice/validation'],
+    // Enable instrumentation for Sentry
+    instrumentationHook: true,
   },
 
   // Transpile internal packages
@@ -135,8 +151,8 @@ const nextConfig = {
       config.optimization.usedExports = true;
       config.optimization.sideEffects = false;
 
-      // Bundle analyzer (only when ANALYZE=true)
-      if (process.env.ANALYZE) {
+      // Bundle analyzer (only when ANALYZE=true and plugin is available)
+      if (process.env.ANALYZE && BundleAnalyzerPlugin) {
         config.plugins.push(
           new BundleAnalyzerPlugin({
             analyzerMode: 'server',
@@ -213,4 +229,44 @@ const nextConfig = {
   ],
 };
 
-module.exports = nextConfig;
+// Wrap with Sentry configuration if available
+module.exports = withSentryConfig ? withSentryConfig(
+  nextConfig,
+  {
+    // For all available options, see:
+    // https://github.com/getsentry/sentry-webpack-plugin#options
+
+    // Suppresses source map uploading logs during build
+    silent: true,
+    org: process.env.SENTRY_ORG,
+    project: process.env.SENTRY_PROJECT,
+  },
+  {
+    // For all available options, see:
+    // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+    // Upload a larger set of source maps for prettier stack traces (increases build time)
+    widenClientFileUpload: true,
+
+    // Transpiles SDK to be compatible with IE11 (increases bundle size)
+    transpileClientSDK: true,
+
+    // Routes browser requests to Sentry through a Next.js rewrite to circumvent ad-blockers
+    // This can increase your server load as well as your hosting bill
+    // Note: Check that the configured route will not match with your Next.js middleware, otherwise reporting of client-
+    // side errors will fail
+    tunnelRoute: "/monitoring",
+
+    // Hides source maps from generated client bundles
+    hideSourceMaps: true,
+
+    // Automatically tree-shake Sentry logger statements to reduce bundle size
+    disableLogger: true,
+
+    // Enables automatic instrumentation of Vercel Cron Monitors.
+    // See the following for more information:
+    // https://docs.sentry.io/product/crons/
+    // https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/#vercel-crons
+    automaticVercelMonitors: true,
+  }
+) : nextConfig;

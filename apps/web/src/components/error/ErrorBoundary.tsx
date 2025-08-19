@@ -1,7 +1,12 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
+import { 
+  ExclamationTriangleIcon, 
+  ArrowPathIcon, 
+  HomeIcon, 
+  BugAntIcon 
+} from '@heroicons/react/24/outline';
 
 // Error boundary props
 interface ErrorBoundaryProps {
@@ -40,7 +45,7 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6 text-center">
         <div className="flex justify-center mb-4">
-          <AlertTriangle className="h-16 w-16 text-red-500" />
+          <ExclamationTriangleIcon className="h-16 w-16 text-red-500" />
         </div>
         
         <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -67,7 +72,7 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({
             onClick={resetError}
             className="w-full flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <ArrowPathIcon className="h-4 w-4 mr-2" />
             Try Again
           </button>
           
@@ -75,7 +80,7 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({
             onClick={() => window.location.href = '/'}
             className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            <Home className="h-4 w-4 mr-2" />
+            <HomeIcon className="h-4 w-4 mr-2" />
             Go Home
           </button>
 
@@ -98,7 +103,7 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({
               }}
               className="w-full flex items-center justify-center px-4 py-2 border border-orange-300 text-sm font-medium rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500"
             >
-              <Bug className="h-4 w-4 mr-2" />
+              <BugAntIcon className="h-4 w-4 mr-2" />
               Copy Error Details
             </button>
           )}
@@ -138,7 +143,7 @@ const DefaultErrorFallback: React.FC<ErrorFallbackProps> = ({
 const MinimalErrorFallback: React.FC<ErrorFallbackProps> = ({ resetError }) => (
   <div className="flex items-center justify-center p-4 bg-red-50 border border-red-200 rounded-lg">
     <div className="text-center">
-      <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-2" />
+      <ExclamationTriangleIcon className="h-8 w-8 text-red-500 mx-auto mb-2" />
       <p className="text-sm text-red-700 mb-3">
         This component failed to load
       </p>
@@ -295,11 +300,11 @@ export function withErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   errorBoundaryConfig?: Omit<ErrorBoundaryProps, 'children'>
 ) {
-  const WrappedComponent = React.forwardRef<any, P>((props, ref) => (
+  const WrappedComponent = (props: P) => (
     <ErrorBoundary {...errorBoundaryConfig}>
-      <Component {...props} ref={ref} />
+      <Component {...props} />
     </ErrorBoundary>
-  ));
+  );
 
   WrappedComponent.displayName = `withErrorBoundary(${Component.displayName || Component.name})`;
   

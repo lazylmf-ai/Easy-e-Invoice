@@ -125,7 +125,7 @@ export default function CreateTemplatePage() {
     name: 'templateData.defaultLineItems',
   });
 
-  const watchedCategory = watch('templateData.category') || watch('category');
+  const watchedCategory = watch('category');
 
   useEffect(() => {
     fetchIndustryPresets();

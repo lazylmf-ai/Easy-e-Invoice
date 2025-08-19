@@ -289,6 +289,7 @@ export const invoiceCreateSchema = z.object({
   buyerPhone: z.string().max(20).optional(),
   buyerAddress: z.string().max(500).optional(),
   poNumber: z.string().max(50).optional(),
+  internalRef: z.string().max(100).optional(),
   notes: z.string().max(1000).optional(),
   metadata: z.record(z.any()).optional(),
 });
@@ -304,6 +305,7 @@ export const lineItemCreateSchema = z.object({
   lineTotal: z.string().regex(/^\d+\.\d{2}$/, 'Line total must have 2 decimal places'),
   sstRate: z.string().regex(/^\d+\.\d{2}$/, 'SST rate must have 2 decimal places').default('0.00'),
   sstAmount: z.string().regex(/^\d+\.\d{2}$/, 'SST amount must have 2 decimal places').default('0.00'),
+  taxExemptionCode: z.string().max(20).optional(),
   notes: z.string().max(500).optional(),
   metadata: z.record(z.any()).optional(),
 });
