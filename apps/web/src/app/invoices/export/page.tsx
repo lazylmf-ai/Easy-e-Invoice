@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
@@ -37,7 +37,7 @@ interface ExportJob {
   error?: string;
 }
 
-export default function ExportInvoicesPage() {
+function ExportInvoicesPageContent() {
   const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [exportType, setExportType] = useState<'pdf' | 'json' | 'csv'>('pdf');
@@ -649,5 +649,17 @@ export default function ExportInvoicesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ExportInvoicesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <ExportInvoicesPageContent />
+    </Suspense>
   );
 }

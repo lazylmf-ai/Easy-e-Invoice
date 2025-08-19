@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import InvoiceForm from '@/components/invoices/InvoiceForm';
 
-export default function CreateInvoicePage() {
+function CreateInvoicePageContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [validationResults, setValidationResults] = useState<any>(null);
@@ -194,5 +194,17 @@ export default function CreateInvoicePage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function CreateInvoicePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    }>
+      <CreateInvoicePageContent />
+    </Suspense>
   );
 }
