@@ -150,9 +150,7 @@ class_name = "FileProcessor"
 name = "VALIDATION_ENGINE"
 class_name = "ValidationEngine"
 
-# Build Configuration
-[build]
-command = "npm run build"
+# Build Configuration - removed to prevent recursive builds
 
 # Development Configuration for Local Testing
 [miniflare]

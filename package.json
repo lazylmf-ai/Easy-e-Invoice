@@ -32,10 +32,16 @@
     "db:studio": "cd packages/database && drizzle-kit studio",
     "api:dev": "cd apps/api && wrangler dev",
     "api:deploy": "cd apps/api && wrangler deploy",
+    "api:deploy:prod": "cd apps/api && wrangler deploy --env production",
     "web:dev": "cd apps/web && npm run dev",
     "web:build": "cd apps/web && npm run build",
     "start": "turbo run start",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "deploy:verify": "node scripts/verify-deployment-ready.js",
+    "deploy": "./deploy.sh",
+    "deploy:api": "./deploy.sh api",
+    "deploy:web": "./deploy.sh frontend",
+    "deploy:db": "./deploy.sh database"
   },
   "devDependencies": {
     "@playwright/test": "^1.40.0",
