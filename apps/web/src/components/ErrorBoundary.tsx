@@ -1,14 +1,21 @@
 'use client';
 
 import React from 'react';
-// Try to import Sentry, fall back to mock if not available
-let Sentry: any;
-try {
-  Sentry = require('@sentry/nextjs');
-} catch (error) {
-  console.warn('Sentry not available, using mock implementation');
-  Sentry = require('../lib/sentry-mock').Sentry;
-}
+// Mock Sentry implementation for deployment
+const Sentry = {
+  captureException: (error: Error) => {
+    console.error('Error captured:', error);
+    return 'mock-event-id';
+  },
+  withScope: (callback: (scope: any) => void) => {
+    const mockScope = {
+      setTag: (key: string, value: string) => {},
+      setLevel: (level: string) => {},
+      setContext: (key: string, value: any) => {}
+    };
+    callback(mockScope);
+  }
+};
 import { ExclamationTriangleIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface ErrorBoundaryProps {
@@ -190,7 +197,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Capture the error with Sentry and add Malaysian e-Invoice context
-    const eventId = Sentry.captureException(error, (scope) => {
+    Sentry.withScope((scope) => {
       scope.setTag('errorBoundary', true);
       scope.setTag('country', 'MY');
       scope.setTag('compliance_system', 'lhdn');
@@ -213,10 +220,9 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         scope.setTag('feature', 'data_export');
       }
       
-      return scope;
+      const eventId = Sentry.captureException(error);
+      this.setState({ eventId });
     });
-
-    this.setState({ eventId });
 
     console.error('Error caught by boundary:', error, errorInfo);
   }
@@ -241,7 +247,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 // Hook for manual error reporting
 export function useErrorHandler() {
   return React.useCallback((error: Error, context?: Record<string, any>) => {
-    const eventId = Sentry.captureException(error, (scope) => {
+    Sentry.withScope((scope) => {
       scope.setTag('manual_report', true);
       scope.setTag('country', 'MY');
       scope.setTag('compliance_system', 'lhdn');
@@ -256,11 +262,10 @@ export function useErrorHandler() {
         });
       }
       
-      return scope;
+      const eventId = Sentry.captureException(error);
+      console.error('Manual error report:', error, context);
+      return eventId;
     });
-
-    console.error('Manual error report:', error, context);
-    return eventId;
   }, []);
 }
 

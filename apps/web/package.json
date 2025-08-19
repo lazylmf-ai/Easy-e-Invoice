@@ -26,7 +26,8 @@
     "zod": "^3.22.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.0.0",
-    "@sentry/nextjs": "^7.92.0"
+    "@einvoice/validation": "file:../../packages/validation",
+    "@einvoice/database": "file:../../packages/database"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",

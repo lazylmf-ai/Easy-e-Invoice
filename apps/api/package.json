@@ -19,9 +19,8 @@
     "jose": "^5.2.0",
     "zod": "^3.22.0",
     "resend": "^3.2.0",
-    "@einvoice/database": "workspace:*",
-    "@einvoice/validation": "workspace:*",
-    "@sentry/cloudflare-workers": "^7.92.0"
+    "@einvoice/database": "file:../../packages/database",
+    "@einvoice/validation": "file:../../packages/validation"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240423.0",

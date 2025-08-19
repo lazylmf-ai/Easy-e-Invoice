@@ -3,7 +3,6 @@ name = "easy-e-invoice-api"
 main = "src/index.ts"
 compatibility_date = "2024-08-16"
 compatibility_flags = ["nodejs_compat"]
-node_compat = true
 
 # Default development configuration
 [vars]
@@ -22,7 +21,7 @@ PAGINATION_MAX_LIMIT = "100"
 # Production Environment Configuration
 [env.production]
 name = "easy-e-invoice-api-prod"
-route = { pattern = "api.easyeinvoice.com.my/*", zone_name = "easyeinvoice.com.my" }
+# Custom domain routing can be added later
 usage_model = "standard"
 
 [env.production.vars]
@@ -63,18 +62,15 @@ ENABLE_MONITORING = "true"
 # KV Namespaces for Production
 [[env.production.kv_namespaces]]
 binding = "CACHE"
-id = "cache_prod_id_placeholder"
-preview_id = "cache_preview_id_placeholder"
+id = "765e2a2b8f484107b1aa1d496d864656"
 
 [[env.production.kv_namespaces]]
 binding = "SESSIONS"
-id = "sessions_prod_id_placeholder"
-preview_id = "sessions_preview_id_placeholder"
+id = "ea977be93eaf43a7b6ad4821ab9472ec"
 
 [[env.production.kv_namespaces]]
 binding = "RATE_LIMITS"
-id = "rate_limits_prod_id_placeholder"
-preview_id = "rate_limits_preview_id_placeholder"
+id = "ed9d94eb872742a9b4b38a4ffaf922a8"
 
 # KV Namespaces for Staging
 [[env.staging.kv_namespaces]]
@@ -109,66 +105,9 @@ binding = "API_ANALYTICS"
 [[env.staging.analytics_engine_datasets]]
 binding = "API_ANALYTICS"
 
-# Queue Bindings for Background Jobs
-[[env.production.queues]]
-binding = "EMAIL_QUEUE"
-queue_name = "email-queue-prod"
-
-[[env.production.queues]]
-binding = "VALIDATION_QUEUE"
-queue_name = "validation-queue-prod"
-
-[[env.production.queues]]
-binding = "EXPORT_QUEUE"
-queue_name = "export-queue-prod"
-
-[[env.staging.queues]]
-binding = "EMAIL_QUEUE"
-queue_name = "email-queue-staging"
-
-[[env.staging.queues]]
-binding = "VALIDATION_QUEUE"
-queue_name = "validation-queue-staging"
-
-[[env.staging.queues]]
-binding = "EXPORT_QUEUE"
-queue_name = "export-queue-staging"
-
-# Cron Triggers for Maintenance
-[[env.production.triggers]]
-crons = ["0 2 * * *"]  # Daily cleanup at 2 AM GMT+8 (6 PM UTC)
-
-[[env.production.triggers]]
-crons = ["0 0 1 * *"]  # Monthly reports on 1st of each month
-
-# Durable Objects for Stateful Operations
-[[env.production.durable_objects.bindings]]
-name = "FILE_PROCESSOR"
-class_name = "FileProcessor"
-
-[[env.production.durable_objects.bindings]]
-name = "VALIDATION_ENGINE"
-class_name = "ValidationEngine"
 
 # Build Configuration - removed to prevent recursive builds
 
-# Development Configuration for Local Testing
-[miniflare]
-kv_persist = true
-r2_persist = true
-cache_persist = true
-
-# Environment-specific observability
-[observability]
-enabled = true
-
-# Security Headers for Production
-[env.production.compatibility_flags]
-nodejs_compat = true
-
-# Performance Settings
-[limits]
-cpu_ms = 50000
 
 # Required Secrets (set using wrangler secret put):
 # - DATABASE_URL: PostgreSQL connection string
