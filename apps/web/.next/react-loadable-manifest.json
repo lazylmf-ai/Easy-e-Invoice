@@ -1,0 +1,14 @@
+{
+  "../../../node_modules/@tanstack/query-devtools/build/index.js -> ./DevtoolsComponent/LNWAZHJI.js": {
+    "id": 1858,
+    "files": [
+      "static/chunks/vendors-c91a03059fe08c97.js"
+    ]
+  },
+  "../../../node_modules/@tanstack/query-devtools/build/index.js -> ./DevtoolsPanelComponent/MWZ6AO7Z.js": {
+    "id": 1694,
+    "files": [
+      "static/chunks/vendors-c91a03059fe08c97.js"
+    ]
+  }
+}

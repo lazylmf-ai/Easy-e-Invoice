@@ -1,0 +1,14 @@
+
+> @easy-einvoice/websocket@1.0.0 typecheck
+> tsc --noEmit
+
+error TS2688: Cannot find type definition file for 'jest'.
+  The file is in the program because:
+    Entry point of type library 'jest' specified in compilerOptions
+npm error Lifecycle script `typecheck` failed with error:
+npm error code 2
+npm error path /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/websocket
+npm error workspace @easy-einvoice/websocket@1.0.0
+npm error location /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/websocket
+npm error command failed
+npm error command sh -c tsc --noEmit

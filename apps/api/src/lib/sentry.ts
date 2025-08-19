@@ -1,4 +1,5 @@
-import { Sentry } from '@sentry/cloudflare-workers';
+// Use mock Sentry for deployment
+export * from './sentry-mock';
 import type { ExecutionContext } from '@cloudflare/workers-types';
 
 interface Environment {

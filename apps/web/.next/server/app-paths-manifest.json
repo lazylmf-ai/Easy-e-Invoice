@@ -1,0 +1,15 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/auth/login/page": "app/auth/login/page.js",
+  "/auth/verify/page": "app/auth/verify/page.js",
+  "/invoices/[id]/page": "app/invoices/[id]/page.js",
+  "/invoices/page": "app/invoices/page.js",
+  "/invoices/export/page": "app/invoices/export/page.js",
+  "/page": "app/page.js",
+  "/invoices/create/page": "app/invoices/create/page.js",
+  "/invoices/import/page": "app/invoices/import/page.js",
+  "/org/setup/page": "app/org/setup/page.js",
+  "/templates/page": "app/templates/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/templates/create/page": "app/templates/create/page.js"
+}

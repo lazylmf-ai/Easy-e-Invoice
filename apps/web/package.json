@@ -1,5 +1,5 @@
 {
-  "name": "@einvoice/web",
+  "name": "easy-e-invoice-web",
   "version": "1.0.0",
   "description": "Next.js frontend for Easy e-Invoice",
   "private": true,
@@ -25,9 +25,7 @@
     "tailwindcss": "^3.3.0",
     "zod": "^3.22.0",
     "class-variance-authority": "^0.7.0",
-    "clsx": "^2.0.0",
-    "@einvoice/validation": "file:../../packages/validation",
-    "@einvoice/database": "file:../../packages/database"
+    "clsx": "^2.0.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.0",

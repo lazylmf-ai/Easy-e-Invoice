@@ -189,6 +189,30 @@ export declare const invoiceTemplates: import("drizzle-orm/pg-core").PgTableWith
             enumValues: [string, ...string[]];
             baseColumn: never;
         }, {}, {}>;
+        category: import("drizzle-orm/pg-core").PgColumn<{
+            name: "category";
+            tableName: "invoice_templates";
+            dataType: "string";
+            columnType: "PgVarchar";
+            data: string;
+            driverParam: string;
+            notNull: false;
+            hasDefault: true;
+            enumValues: [string, ...string[]];
+            baseColumn: never;
+        }, {}, {}>;
+        isPublic: import("drizzle-orm/pg-core").PgColumn<{
+            name: "is_public";
+            tableName: "invoice_templates";
+            dataType: "boolean";
+            columnType: "PgBoolean";
+            data: boolean;
+            driverParam: boolean;
+            notNull: false;
+            hasDefault: true;
+            enumValues: undefined;
+            baseColumn: never;
+        }, {}, {}>;
         templateData: import("drizzle-orm/pg-core").PgColumn<{
             name: "template_data";
             tableName: "invoice_templates";
@@ -213,6 +237,18 @@ export declare const invoiceTemplates: import("drizzle-orm/pg-core").PgTableWith
             enumValues: undefined;
             baseColumn: never;
         }, {}, {}>;
+        version: import("drizzle-orm/pg-core").PgColumn<{
+            name: "version";
+            tableName: "invoice_templates";
+            dataType: "number";
+            columnType: "PgInteger";
+            data: number;
+            driverParam: string | number;
+            notNull: false;
+            hasDefault: true;
+            enumValues: undefined;
+            baseColumn: never;
+        }, {}, {}>;
         usageCount: import("drizzle-orm/pg-core").PgColumn<{
             name: "usage_count";
             tableName: "invoice_templates";
@@ -225,8 +261,32 @@ export declare const invoiceTemplates: import("drizzle-orm/pg-core").PgTableWith
             enumValues: undefined;
             baseColumn: never;
         }, {}, {}>;
+        lastUsedAt: import("drizzle-orm/pg-core").PgColumn<{
+            name: "last_used_at";
+            tableName: "invoice_templates";
+            dataType: "date";
+            columnType: "PgTimestamp";
+            data: Date;
+            driverParam: string;
+            notNull: false;
+            hasDefault: false;
+            enumValues: undefined;
+            baseColumn: never;
+        }, {}, {}>;
         createdAt: import("drizzle-orm/pg-core").PgColumn<{
             name: "created_at";
+            tableName: "invoice_templates";
+            dataType: "date";
+            columnType: "PgTimestamp";
+            data: Date;
+            driverParam: string;
+            notNull: false;
+            hasDefault: true;
+            enumValues: undefined;
+            baseColumn: never;
+        }, {}, {}>;
+        updatedAt: import("drizzle-orm/pg-core").PgColumn<{
+            name: "updated_at";
             tableName: "invoice_templates";
             dataType: "date";
             columnType: "PgTimestamp";

@@ -15,7 +15,7 @@ import {
   calculateGrandTotal,
   type InvoiceCreate,
   type LineItemCreate
-} from '@einvoice/validation';
+} from '@/lib/validation-schemas';
 
 // Form schema combining invoice and line items
 const formSchema = z.object({

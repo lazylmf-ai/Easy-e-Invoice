@@ -120,4 +120,6 @@ app.notFound((c) => {
   }, 404);
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+};
