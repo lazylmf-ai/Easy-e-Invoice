@@ -1,0 +1,278 @@
+# Uptime Monitoring Configuration for Easy e-Invoice
+# This configuration can be used with services like UptimeRobot, Pingdom, or custom monitoring
+
+# Production Environment Monitoring
+production:
+  endpoints:
+    # Frontend monitoring
+    - name: "Frontend - Homepage"
+      url: "https://easyeinvoice.com.my"
+      method: "GET"
+      expected_status: 200
+      timeout: 30
+      interval: 5  # minutes
+      alert_threshold: 3  # failures before alert
+      
+    - name: "Frontend - Dashboard" 
+      url: "https://easyeinvoice.com.my/dashboard"
+      method: "GET"
+      expected_status: 200
+      timeout: 30
+      interval: 5
+      alert_threshold: 3
+      
+    - name: "Frontend - Login"
+      url: "https://easyeinvoice.com.my/auth/login"
+      method: "GET"
+      expected_status: 200
+      timeout: 30
+      interval: 10
+      alert_threshold: 3
+
+    # API monitoring
+    - name: "API - Health Check"
+      url: "https://api.easyeinvoice.com.my/health"
+      method: "GET"
+      expected_status: 200
+      timeout: 15
+      interval: 2  # minutes - more frequent for API
+      alert_threshold: 2
+      expected_content: "healthy"
+      
+    - name: "API - Authentication"
+      url: "https://api.easyeinvoice.com.my/api/auth/health"
+      method: "GET"
+      expected_status: 200
+      timeout: 15
+      interval: 5
+      alert_threshold: 3
+      
+    - name: "API - Invoice Validation"
+      url: "https://api.easyeinvoice.com.my/api/validation/health"
+      method: "GET"
+      expected_status: 200
+      timeout: 20  # Validation might take longer
+      interval: 10
+      alert_threshold: 3
+
+    # Database connectivity (through API)
+    - name: "Database Connectivity"
+      url: "https://api.easyeinvoice.com.my/api/health/database"
+      method: "GET"
+      expected_status: 200
+      timeout: 30
+      interval: 5
+      alert_threshold: 2
+      
+    # External service dependencies
+    - name: "External Services Health"
+      url: "https://api.easyeinvoice.com.my/api/health/services"
+      method: "GET"
+      expected_status: 200
+      timeout: 45
+      interval: 15
+      alert_threshold: 3
+
+  # SSL certificate monitoring
+  ssl_monitoring:
+    - domain: "easyeinvoice.com.my"
+      port: 443
+      alert_days_before_expiry: 30
+      
+    - domain: "api.easyeinvoice.com.my"
+      port: 443
+      alert_days_before_expiry: 30
+
+  # DNS monitoring
+  dns_monitoring:
+    - hostname: "easyeinvoice.com.my"
+      record_type: "A"
+      expected_ip: "auto-detect"
+      
+    - hostname: "api.easyeinvoice.com.my"
+      record_type: "CNAME"
+      expected_value: "auto-detect"
+
+# Staging Environment Monitoring
+staging:
+  endpoints:
+    - name: "Staging - Frontend"
+      url: "https://staging.easyeinvoice.com.my"
+      method: "GET"
+      expected_status: 200
+      timeout: 30
+      interval: 10  # Less frequent for staging
+      alert_threshold: 5
+      
+    - name: "Staging - API Health"
+      url: "https://api-staging.easyeinvoice.com.my/health"
+      method: "GET"
+      expected_status: 200
+      timeout: 15
+      interval: 10
+      alert_threshold: 5
+
+# Performance monitoring thresholds
+performance_thresholds:
+  # Response time alerts
+  response_time:
+    warning: 2000   # 2 seconds
+    critical: 5000  # 5 seconds
+    
+  # Availability thresholds
+  availability:
+    monthly_target: 99.9   # 99.9% uptime target
+    weekly_warning: 99.5   # Warning if below 99.5% weekly
+    daily_critical: 98.0   # Critical if below 98% daily
+
+# Alert configuration
+alerts:
+  # Notification channels
+  channels:
+    - type: "email"
+      name: "DevOps Team"
+      addresses:
+        - "devops@easyeinvoice.com.my"
+        - "cto@easyeinvoice.com.my"
+      severity: ["critical", "warning"]
+      
+    - type: "slack"
+      name: "Engineering Alerts"
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      channel: "#alerts"
+      severity: ["critical", "warning"]
+      
+    - type: "sms"
+      name: "Critical Alerts"
+      numbers:
+        - "+60123456789"  # Primary on-call
+        - "+60987654321"  # Secondary on-call
+      severity: ["critical"]
+      time_restriction: "business_hours_only"
+      
+    - type: "pagerduty"
+      name: "Incident Response"
+      integration_key: "${PAGERDUTY_INTEGRATION_KEY}"
+      severity: ["critical"]
+
+  # Escalation rules
+  escalation:
+    initial_alert: 0      # Immediate
+    reminder_interval: 30 # 30 minutes
+    escalation_after: 60  # 1 hour
+    max_escalations: 3
+    
+  # Maintenance windows (no alerts)
+  maintenance_windows:
+    - name: "Weekly Maintenance"
+      day: "sunday"
+      start: "02:00"
+      end: "04:00"
+      timezone: "Asia/Kuala_Lumpur"
+      recurring: true
+      
+    - name: "Emergency Maintenance"
+      enabled: false  # Enable when needed
+      start: "2024-01-01T02:00:00+08:00"
+      end: "2024-01-01T06:00:00+08:00"
+
+# Custom health checks for business logic
+business_health_checks:
+  - name: "Invoice Generation Test"
+    type: "synthetic"
+    script: |
+      # Synthetic test that creates a test invoice
+      curl -X POST "https://api.easyeinvoice.com.my/api/invoices/test" \
+           -H "Authorization: Bearer ${TEST_API_TOKEN}" \
+           -H "Content-Type: application/json" \
+           -d '{
+             "customer": "Test Customer",
+             "amount": 100.00,
+             "currency": "MYR"
+           }'
+    expected_status: 201
+    interval: 60  # minutes
+    timeout: 30
+    alert_threshold: 2
+    
+  - name: "Malaysian Compliance Check"
+    type: "synthetic"
+    script: |
+      # Test compliance validation endpoint
+      curl -X POST "https://api.easyeinvoice.com.my/api/validation/test" \
+           -H "Authorization: Bearer ${TEST_API_TOKEN}" \
+           -H "Content-Type: application/json" \
+           -d '{
+             "tin": "C1234567890",
+             "amount": 1000.00,
+             "sst_rate": 6
+           }'
+    expected_status: 200
+    expected_content: "compliance_score"
+    interval: 120  # minutes
+    timeout: 45
+    alert_threshold: 2
+
+# Monitoring dashboards configuration
+dashboards:
+  - name: "Production Overview"
+    panels:
+      - title: "System Uptime"
+        type: "uptime_chart"
+        timerange: "24h"
+        
+      - title: "Response Times"
+        type: "response_time_chart"
+        timerange: "4h"
+        
+      - title: "Error Rates"
+        type: "error_rate_chart"
+        timerange: "1h"
+        
+      - title: "Geographic Distribution"
+        type: "world_map"
+        metric: "requests_by_country"
+        
+  - name: "API Performance"
+    panels:
+      - title: "API Endpoints Performance"
+        type: "endpoint_performance"
+        endpoints: ["auth", "invoices", "validation"]
+        
+      - title: "Database Performance"
+        type: "database_metrics"
+        metrics: ["query_time", "connections", "locks"]
+
+# Compliance monitoring for Malaysian regulations
+compliance_monitoring:
+  - name: "Data Residency Check"
+    description: "Verify data stays within Malaysian jurisdiction"
+    type: "network_trace"
+    frequency: "daily"
+    alert_if: "data_leaves_malaysia"
+    
+  - name: "PDPA Compliance Monitor"
+    description: "Monitor for personal data handling compliance"
+    type: "audit_log_analysis"
+    frequency: "hourly"
+    patterns:
+      - "personal_data_access_without_consent"
+      - "data_retention_violation"
+      - "unauthorized_data_export"
+
+# Cost monitoring
+cost_monitoring:
+  cloudflare_workers:
+    threshold_monthly: 500  # RM
+    alert_percentage: 80    # Alert at 80% of budget
+    
+  vercel:
+    threshold_monthly: 200  # RM
+    alert_percentage: 80
+    
+  database:
+    threshold_monthly: 300  # RM
+    alert_percentage: 75
+    
+  total_monthly_budget: 2000  # RM
+  budget_alert_percentage: 85

@@ -1,16 +1,181 @@
+# Easy e-Invoice API - Cloudflare Workers Configuration
 name = "easy-e-invoice-api"
 main = "src/index.ts"
 compatibility_date = "2024-08-16"
 compatibility_flags = ["nodejs_compat"]
+node_compat = true
 
-[env.development]
-vars = { ENVIRONMENT = "development" }
+# Default development configuration
+[vars]
+ENVIRONMENT = "development"
+API_VERSION = "v1"
+LOG_LEVEL = "debug"
+CORS_ORIGINS = "http://localhost:3000"
+RATE_LIMIT_REQUESTS = "1000"
+RATE_LIMIT_WINDOW = "60"
+JWT_EXPIRY = "86400"
+MAGIC_LINK_EXPIRY = "900"
+FILE_UPLOAD_MAX_SIZE = "52428800"
+PAGINATION_DEFAULT_LIMIT = "20"
+PAGINATION_MAX_LIMIT = "100"
 
+# Production Environment Configuration
 [env.production]
 name = "easy-e-invoice-api-prod"
-vars = { ENVIRONMENT = "production" }
+route = { pattern = "api.easyeinvoice.com.my/*", zone_name = "easyeinvoice.com.my" }
+usage_model = "standard"
 
-# To set secrets:
-# wrangler secret put DATABASE_URL
-# wrangler secret put JWT_SECRET
-# wrangler secret put RESEND_API_KEY
+[env.production.vars]
+ENVIRONMENT = "production"
+API_VERSION = "v1"
+LOG_LEVEL = "info"
+CORS_ORIGINS = "https://easyeinvoice.com.my,https://www.easyeinvoice.com.my"
+RATE_LIMIT_REQUESTS = "100"
+RATE_LIMIT_WINDOW = "900"
+JWT_EXPIRY = "86400"
+MAGIC_LINK_EXPIRY = "900"
+FILE_UPLOAD_MAX_SIZE = "52428800"
+PAGINATION_DEFAULT_LIMIT = "20"
+PAGINATION_MAX_LIMIT = "100"
+ENABLE_ANALYTICS = "true"
+ENABLE_MONITORING = "true"
+
+# Staging Environment Configuration
+[env.staging]
+name = "easy-e-invoice-api-staging"
+route = { pattern = "api-staging.easyeinvoice.com.my/*", zone_name = "easyeinvoice.com.my" }
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+API_VERSION = "v1"
+LOG_LEVEL = "debug"
+CORS_ORIGINS = "https://staging.easyeinvoice.com.my"
+RATE_LIMIT_REQUESTS = "200"
+RATE_LIMIT_WINDOW = "900"
+JWT_EXPIRY = "86400"
+MAGIC_LINK_EXPIRY = "900"
+FILE_UPLOAD_MAX_SIZE = "52428800"
+PAGINATION_DEFAULT_LIMIT = "20"
+PAGINATION_MAX_LIMIT = "100"
+ENABLE_ANALYTICS = "true"
+ENABLE_MONITORING = "true"
+
+# KV Namespaces for Production
+[[env.production.kv_namespaces]]
+binding = "CACHE"
+id = "cache_prod_id_placeholder"
+preview_id = "cache_preview_id_placeholder"
+
+[[env.production.kv_namespaces]]
+binding = "SESSIONS"
+id = "sessions_prod_id_placeholder"
+preview_id = "sessions_preview_id_placeholder"
+
+[[env.production.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "rate_limits_prod_id_placeholder"
+preview_id = "rate_limits_preview_id_placeholder"
+
+# KV Namespaces for Staging
+[[env.staging.kv_namespaces]]
+binding = "CACHE"
+id = "cache_staging_id_placeholder"
+
+[[env.staging.kv_namespaces]]
+binding = "SESSIONS"
+id = "sessions_staging_id_placeholder"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "rate_limits_staging_id_placeholder"
+
+# R2 Storage Buckets
+[[env.production.r2_buckets]]
+binding = "FILE_STORAGE"
+bucket_name = "easy-einvoice-files-prod"
+
+[[env.production.r2_buckets]]
+binding = "BACKUP_STORAGE"
+bucket_name = "easy-einvoice-backups-prod"
+
+[[env.staging.r2_buckets]]
+binding = "FILE_STORAGE"
+bucket_name = "easy-einvoice-files-staging"
+
+# Analytics Engine for Production
+[[env.production.analytics_engine_datasets]]
+binding = "API_ANALYTICS"
+
+[[env.staging.analytics_engine_datasets]]
+binding = "API_ANALYTICS"
+
+# Queue Bindings for Background Jobs
+[[env.production.queues]]
+binding = "EMAIL_QUEUE"
+queue_name = "email-queue-prod"
+
+[[env.production.queues]]
+binding = "VALIDATION_QUEUE"
+queue_name = "validation-queue-prod"
+
+[[env.production.queues]]
+binding = "EXPORT_QUEUE"
+queue_name = "export-queue-prod"
+
+[[env.staging.queues]]
+binding = "EMAIL_QUEUE"
+queue_name = "email-queue-staging"
+
+[[env.staging.queues]]
+binding = "VALIDATION_QUEUE"
+queue_name = "validation-queue-staging"
+
+[[env.staging.queues]]
+binding = "EXPORT_QUEUE"
+queue_name = "export-queue-staging"
+
+# Cron Triggers for Maintenance
+[[env.production.triggers]]
+crons = ["0 2 * * *"]  # Daily cleanup at 2 AM GMT+8 (6 PM UTC)
+
+[[env.production.triggers]]
+crons = ["0 0 1 * *"]  # Monthly reports on 1st of each month
+
+# Durable Objects for Stateful Operations
+[[env.production.durable_objects.bindings]]
+name = "FILE_PROCESSOR"
+class_name = "FileProcessor"
+
+[[env.production.durable_objects.bindings]]
+name = "VALIDATION_ENGINE"
+class_name = "ValidationEngine"
+
+# Build Configuration
+[build]
+command = "npm run build"
+
+# Development Configuration for Local Testing
+[miniflare]
+kv_persist = true
+r2_persist = true
+cache_persist = true
+
+# Environment-specific observability
+[observability]
+enabled = true
+
+# Security Headers for Production
+[env.production.compatibility_flags]
+nodejs_compat = true
+
+# Performance Settings
+[limits]
+cpu_ms = 50000
+
+# Required Secrets (set using wrangler secret put):
+# - DATABASE_URL: PostgreSQL connection string
+# - JWT_SECRET: Secret for JWT token signing
+# - RESEND_API_KEY: Email service API key
+# - SENTRY_DSN: Error tracking DSN (optional)
+# - STRIPE_SECRET_KEY: Payment processing (optional)
+# - LHDN_API_KEY: MyInvois integration (optional)

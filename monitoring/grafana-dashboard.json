@@ -1,0 +1,404 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Easy e-Invoice Production Dashboard",
+    "tags": ["easy-einvoice", "production", "monitoring"],
+    "style": "dark",
+    "timezone": "Asia/Kuala_Lumpur",
+    "refresh": "30s",
+    "schemaVersion": 30,
+    "version": 1,
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"],
+      "time_options": ["5m", "15m", "1h", "6h", "12h", "24h", "2d", "7d", "30d"]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "System Health Overview",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "up{job=\"easy-einvoice-api\"}",
+            "legendFormat": "API Status",
+            "refId": "A"
+          },
+          {
+            "expr": "up{job=\"easy-einvoice-web\"}",
+            "legendFormat": "Web Status",
+            "refId": "B"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [
+              {
+                "options": {
+                  "0": {
+                    "text": "DOWN",
+                    "color": "red"
+                  },
+                  "1": {
+                    "text": "UP",
+                    "color": "green"
+                  }
+                }
+              }
+            ],
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "horizontal",
+          "textMode": "value_and_name"
+        },
+        "gridPos": {"h": 4, "w": 12, "x": 0, "y": 0}
+      },
+      {
+        "id": 2,
+        "title": "Request Rate (Requests/sec)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"easy-einvoice-api\"}[5m])",
+            "legendFormat": "API Requests",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(http_requests_total{job=\"easy-einvoice-web\"}[5m])",
+            "legendFormat": "Web Requests",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Requests/sec",
+            "min": 0
+          }
+        ],
+        "legend": {
+          "show": true,
+          "values": true,
+          "current": true,
+          "max": true,
+          "avg": true
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+      },
+      {
+        "id": 3,
+        "title": "Response Time Percentiles (ms)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"easy-einvoice-api\"}[5m])) * 1000",
+            "legendFormat": "API p50",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"easy-einvoice-api\"}[5m])) * 1000",
+            "legendFormat": "API p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job=\"easy-einvoice-api\"}[5m])) * 1000",
+            "legendFormat": "API p99",
+            "refId": "C"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Response Time (ms)",
+            "min": 0
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 2000,
+            "colorMode": "critical",
+            "op": "EVAL_GT"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4}
+      },
+      {
+        "id": 4,
+        "title": "Error Rate (%)",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(http_requests_total{job=\"easy-einvoice-api\",status=~\"5..\"}[5m]) / rate(http_requests_total{job=\"easy-einvoice-api\"}[5m]) * 100",
+            "legendFormat": "API 5xx Error Rate",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(http_requests_total{job=\"easy-einvoice-api\",status=~\"4..\"}[5m]) / rate(http_requests_total{job=\"easy-einvoice-api\"}[5m]) * 100",
+            "legendFormat": "API 4xx Error Rate",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Error Rate (%)",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "thresholds": [
+          {
+            "value": 5,
+            "colorMode": "critical",
+            "op": "EVAL_GT"
+          },
+          {
+            "value": 2,
+            "colorMode": "caution",
+            "op": "EVAL_GT"
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8}
+      },
+      {
+        "id": 5,
+        "title": "Top API Endpoints by Request Count",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "topk(10, sum by (path) (rate(http_requests_total{job=\"easy-einvoice-api\"}[5m])))",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "left",
+              "displayMode": "auto"
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {"id": "byName", "options": "Value"},
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "Requests/sec"
+                },
+                {
+                  "id": "unit",
+                  "value": "reqps"
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 12}
+      },
+      {
+        "id": 6,
+        "title": "Database Connections",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "pg_stat_database_numbackends{datname=\"einvoice_prod\"}",
+            "legendFormat": "Active Connections",
+            "refId": "A"
+          },
+          {
+            "expr": "pg_settings_max_connections",
+            "legendFormat": "Max Connections",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Connections",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 12}
+      },
+      {
+        "id": 7,
+        "title": "Invoice Processing Metrics",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "increase(invoices_created_total[1h])",
+            "legendFormat": "Invoices Created (Last Hour)",
+            "refId": "A"
+          },
+          {
+            "expr": "increase(invoice_validations_total[1h])",
+            "legendFormat": "Validations Performed (Last Hour)",
+            "refId": "B"
+          },
+          {
+            "expr": "avg(invoice_compliance_score) * 100",
+            "legendFormat": "Avg Compliance Score (%)",
+            "refId": "C"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "align": "center",
+              "displayMode": "auto"
+            },
+            "unit": "short"
+          }
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 20}
+      },
+      {
+        "id": 8,
+        "title": "Malaysian Compliance Monitoring",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(compliance_validation_duration_seconds_bucket[5m])) by (le))",
+            "legendFormat": "Validation Time p95",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(compliance_failures_total[5m])",
+            "legendFormat": "Compliance Failures/sec",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "Time (seconds) / Failures per second",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28}
+      },
+      {
+        "id": 9,
+        "title": "Resource Utilization",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(cloudflare_worker_cpu_time_seconds_total[5m]) * 100",
+            "legendFormat": "CPU Usage (%)",
+            "refId": "A"
+          },
+          {
+            "expr": "cloudflare_worker_memory_usage_bytes / 1024 / 1024",
+            "legendFormat": "Memory Usage (MB)",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "CPU (%) / Memory (MB)",
+            "min": 0
+          }
+        ],
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}
+      },
+      {
+        "id": 10,
+        "title": "Security Alerts",
+        "type": "logs",
+        "targets": [
+          {
+            "expr": "{job=\"easy-einvoice-api\"} |= \"security\" or \"alert\" or \"suspicious\"",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showTime": true,
+          "showLabels": false,
+          "showCommonLabels": false,
+          "wrapLogMessage": true,
+          "prettifyLogMessage": false,
+          "enableLogDetails": true,
+          "dedupStrategy": "none",
+          "sortOrder": "Descending"
+        },
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36}
+      }
+    ],
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "prometheus",
+          "enable": true,
+          "expr": "changes(deployment_info[1d])",
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "titleFormat": "Deployment",
+          "textFormat": "Version {{version}} deployed to {{environment}}"
+        }
+      ]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "custom",
+          "options": [
+            {"text": "Production", "value": "production"},
+            {"text": "Staging", "value": "staging"}
+          ],
+          "current": {"text": "Production", "value": "production"}
+        },
+        {
+          "name": "time_range",
+          "type": "interval",
+          "options": [
+            {"text": "5m", "value": "5m"},
+            {"text": "15m", "value": "15m"},
+            {"text": "1h", "value": "1h"},
+            {"text": "6h", "value": "6h"}
+          ],
+          "current": {"text": "5m", "value": "5m"}
+        }
+      ]
+    }
+  },
+  "meta": {
+    "type": "db",
+    "canSave": true,
+    "canEdit": true,
+    "canAdmin": true,
+    "canStar": true,
+    "slug": "easy-einvoice-production",
+    "url": "/d/easy-einvoice-prod/easy-einvoice-production-dashboard",
+    "expires": "0001-01-01T00:00:00Z",
+    "created": "2024-01-01T00:00:00Z",
+    "updated": "2024-01-01T00:00:00Z",
+    "updatedBy": "admin",
+    "createdBy": "admin",
+    "version": 1,
+    "hasAcl": false,
+    "isFolder": false,
+    "folderId": 0,
+    "folderTitle": "General",
+    "folderUrl": "",
+    "provisioned": false,
+    "provisionedExternalId": ""
+  }
+}

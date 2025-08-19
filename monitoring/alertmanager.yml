@@ -1,0 +1,312 @@
+# Alertmanager configuration for Easy e-Invoice
+# This configures how alerts are routed and delivered
+
+global:
+  # The smarthost and SMTP sender used for mail notifications
+  smtp_smarthost: 'smtp.resend.com:587'
+  smtp_from: 'alerts@easyeinvoice.com.my'
+  smtp_auth_username: 'resend'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+  
+  # API URL for webhook notifications
+  slack_api_url: '${SLACK_API_URL}'
+  
+  # Default values
+  resolve_timeout: 5m
+  http_config:
+    follow_redirects: true
+
+# Inhibition rules
+inhibit_rules:
+  # Suppress warning alerts if critical alerts are firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
+    
+  # Suppress individual service alerts if general system alert is firing
+  - source_match:
+      alertname: 'SystemDown'
+    target_match_re:
+      alertname: '(APIDown|DatabaseDown|WebDown)'
+    equal: ['environment']
+
+# Route configuration
+route:
+  group_by: ['alertname', 'environment']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'web.hook.default'
+  
+  routes:
+    # Critical alerts - immediate notification to all channels
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+      routes:
+        # Production critical alerts
+        - match:
+            environment: production
+          receiver: 'production-critical'
+          continue: true
+          
+        # Database issues
+        - match_re:
+            alertname: '(DatabaseDown|PostgreSQLDown|ConnectionPoolExhausted)'
+          receiver: 'database-team'
+          continue: true
+          
+        # API issues  
+        - match_re:
+            alertname: '(APIDown|HighErrorRate|ResponseTimeHigh)'
+          receiver: 'backend-team'
+          continue: true
+          
+        # Security alerts
+        - match_re:
+            alertname: '(SecurityBreach|SuspiciousActivity|RateLimitExceeded)'
+          receiver: 'security-team'
+          continue: true
+    
+    # Warning alerts - business hours notifications
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      active_time_intervals: ['business-hours']
+      
+    # Malaysian compliance alerts
+    - match_re:
+        alertname: '(ComplianceScoreLow|TINValidationFailure|MalaysianRegulationViolation)'
+      receiver: 'compliance-team'
+      continue: true
+      
+    # Performance alerts
+    - match_re:
+        alertname: '(HighLatency|HighCPUUsage|MemoryUsageHigh)'
+      receiver: 'devops-team'
+      active_time_intervals: ['business-hours']
+      
+    # Staging environment - lower priority
+    - match:
+        environment: staging
+      receiver: 'staging-alerts'
+      repeat_interval: 4h
+
+# Receivers define how to notify people
+receivers:
+  # Default webhook - catches unrouted alerts
+  - name: 'web.hook.default'
+    webhook_configs:
+      - url: 'http://localhost:5001/webhook/default'
+        send_resolved: true
+
+  # Critical alerts - all hands on deck
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'devops@easyeinvoice.com.my'
+        subject: '[CRITICAL] Easy e-Invoice Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Environment: {{ .Labels.environment }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          
+          Dashboard: https://grafana.easyeinvoice.com.my/d/{{ .Labels.dashboard_id }}
+          Runbook: https://wiki.easyeinvoice.com.my/runbooks/{{ .Labels.alertname }}
+          {{ end }}
+          
+    slack_configs:
+      - api_url: '${SLACK_CRITICAL_WEBHOOK}'
+        channel: '#critical-alerts'
+        color: 'danger'
+        title: ':rotating_light: CRITICAL ALERT - {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Environment:* {{ .Labels.environment }}
+          *Description:* {{ .Annotations.description }}
+          *Started:* {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+          {{ end }}
+        actions:
+          - type: button
+            text: 'View Dashboard'
+            url: 'https://grafana.easyeinvoice.com.my'
+          - type: button  
+            text: 'View Runbook'
+            url: 'https://wiki.easyeinvoice.com.my/runbooks'
+        send_resolved: true
+
+  # Production critical - includes SMS for on-call
+  - name: 'production-critical'
+    webhook_configs:
+      - url: '${PAGERDUTY_WEBHOOK_URL}'
+        send_resolved: true
+        http_config:
+          headers:
+            Authorization: 'Bearer ${PAGERDUTY_TOKEN}'
+        json_data:
+          routing_key: '${PAGERDUTY_ROUTING_KEY}'
+          event_action: 'trigger'
+          payload:
+            summary: '{{ .GroupLabels.alertname }} - {{ .GroupLabels.environment }}'
+            severity: 'critical'
+            source: 'easy-einvoice-monitoring'
+            component: '{{ .GroupLabels.service }}'
+
+  # Warning alerts - email and Slack during business hours
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'engineering@easyeinvoice.com.my'
+        subject: '[WARNING] Easy e-Invoice: {{ .GroupLabels.alertname }}'
+        body: |
+          Warning alert triggered:
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Environment: {{ .Labels.environment }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+          
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#engineering'
+        color: 'warning'
+        title: ':warning: Warning - {{ .GroupLabels.alertname }}'
+        text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+  # Database team alerts
+  - name: 'database-team'
+    email_configs:
+      - to: 'dba@easyeinvoice.com.my'
+        subject: '[DATABASE] Critical Issue - {{ .GroupLabels.alertname }}'
+        body: |
+          Database critical alert:
+          
+          {{ range .Alerts }}
+          Issue: {{ .Annotations.summary }}
+          Database: {{ .Labels.database }}
+          Instance: {{ .Labels.instance }}
+          
+          Immediate action required!
+          {{ end }}
+          
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#database-alerts'
+        color: 'danger'
+        title: ':database: Database Critical - {{ .GroupLabels.alertname }}'
+
+  # Backend team alerts
+  - name: 'backend-team'
+    email_configs:
+      - to: 'backend@easyeinvoice.com.my'
+        subject: '[API] Critical Issue - {{ .GroupLabels.alertname }}'
+        
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#backend'
+        color: 'danger'
+        title: ':gear: API Critical - {{ .GroupLabels.alertname }}'
+
+  # Security team alerts
+  - name: 'security-team'
+    email_configs:
+      - to: 'security@easyeinvoice.com.my'
+        subject: '[SECURITY] Immediate Attention - {{ .GroupLabels.alertname }}'
+        body: |
+          SECURITY ALERT - IMMEDIATE ATTENTION REQUIRED
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Details: {{ .Annotations.description }}
+          Source IP: {{ .Labels.source_ip }}
+          Time: {{ .StartsAt }}
+          
+          This may indicate a security incident. Please investigate immediately.
+          {{ end }}
+          
+    slack_configs:
+      - api_url: '${SLACK_SECURITY_WEBHOOK}'
+        channel: '#security-incidents'
+        color: '#ff0000'
+        title: ':shield: SECURITY ALERT - {{ .GroupLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}
+          **SECURITY INCIDENT DETECTED**
+          
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Source: {{ .Labels.source_ip }}
+          Time: {{ .StartsAt.Format "2006-01-02 15:04:05 MST" }}
+          {{ end }}
+
+  # Malaysian compliance team
+  - name: 'compliance-team'
+    email_configs:
+      - to: 'compliance@easyeinvoice.com.my'
+        subject: '[COMPLIANCE] Malaysian Regulation Alert - {{ .GroupLabels.alertname }}'
+        body: |
+          Malaysian compliance alert:
+          
+          {{ range .Alerts }}
+          Issue: {{ .Annotations.summary }}
+          Regulation: {{ .Labels.regulation }}
+          Impact: {{ .Annotations.description }}
+          
+          This may affect regulatory compliance. Please review immediately.
+          {{ end }}
+          
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#compliance'
+        color: '#ff9900'
+        title: ':malaysia: Compliance Alert - {{ .GroupLabels.alertname }}'
+
+  # DevOps team for performance issues
+  - name: 'devops-team'
+    email_configs:
+      - to: 'devops@easyeinvoice.com.my'
+        subject: '[DEVOPS] Performance Issue - {{ .GroupLabels.alertname }}'
+        
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#devops'
+        color: 'warning'
+        title: ':chart_with_upwards_trend: Performance Alert - {{ .GroupLabels.alertname }}'
+
+  # Staging environment alerts - lower priority
+  - name: 'staging-alerts'
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#staging'
+        color: '#36a64f'
+        title: ':test_tube: Staging Alert - {{ .GroupLabels.alertname }}'
+        text: 'Staging environment issue: {{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+
+# Time intervals for business hours
+time_intervals:
+  - name: 'business-hours'
+    time_intervals:
+      - times:
+        - start_time: '09:00'
+          end_time: '18:00'
+        weekdays: ['monday:friday']
+        location: 'Asia/Kuala_Lumpur'
+        
+  - name: 'on-call-hours'
+    time_intervals:
+      - times:
+        - start_time: '00:00'
+          end_time: '23:59'
+        weekdays: ['monday:sunday']
+        location: 'Asia/Kuala_Lumpur'
+
+# Alert templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

@@ -1,0 +1,49 @@
+{
+  "name": "@easy-einvoice/notifications",
+  "version": "1.0.0",
+  "description": "Email and notification service for Easy e-Invoice with Malaysian localization",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "zod": "^3.22.4",
+    "uuid": "^9.0.1",
+    "resend": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.7",
+    "typescript": "^5.2.2",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.8",
+    "eslint": "^8.54.0",
+    "@typescript-eslint/eslint-plugin": "^6.12.0",
+    "@typescript-eslint/parser": "^6.12.0"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "keywords": [
+    "notifications",
+    "email",
+    "resend",
+    "cloudflare-workers",
+    "malaysia",
+    "typescript"
+  ],
+  "author": "Easy e-Invoice Team",
+  "license": "MIT"
+}
