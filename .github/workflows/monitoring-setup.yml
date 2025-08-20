@@ -1,0 +1,293 @@
+name: Monitoring & Alerting Setup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'monitoring/**'
+      - '.github/workflows/monitoring-setup.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to setup monitoring'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - staging
+        - production
+        - all
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  setup-monitoring:
+    name: Setup Monitoring Infrastructure
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --frozen-lockfile
+
+      # Sentry Configuration
+      - name: Configure Sentry
+        run: |
+          echo "Setting up Sentry for Malaysian e-Invoice system..."
+          npm run sentry:configure
+        env:
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: easy-einvoice
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+      - name: Create Sentry Release
+        run: |
+          npx @sentry/wizard -i nextjs --unattended
+          npx sentry-cli releases new "v${{ github.sha }}"
+          npx sentry-cli releases set-commits "v${{ github.sha }}" --auto
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: easy-einvoice
+
+      # Prometheus and Grafana Setup
+      - name: Deploy Monitoring Stack
+        run: |
+          echo "🇲🇾 Setting up Malaysian business monitoring stack..."
+          docker-compose -f monitoring/docker-compose.yml up -d
+        env:
+          GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+          PROMETHEUS_CONFIG_PATH: ${{ github.workspace }}/monitoring/prometheus.yml
+
+      # Malaysian Business Metrics Configuration
+      - name: Configure Malaysian Business Metrics
+        run: |
+          echo "Setting up Malaysian-specific monitoring..."
+          npm run monitoring:setup-malaysian-metrics
+        env:
+          MALAYSIAN_BUSINESS_HOURS: '09:00-17:00'
+          TIMEZONE: 'Asia/Kuala_Lumpur'
+          LHDN_COMPLIANCE_ALERTS: 'enabled'
+
+      # Uptime Monitoring
+      - name: Setup Uptime Monitoring
+        run: |
+          npm run monitoring:setup-uptime
+          npm run monitoring:configure-health-checks
+        env:
+          UPTIME_ROBOT_API_KEY: ${{ secrets.UPTIME_ROBOT_API_KEY }}
+          HEALTH_CHECK_INTERVAL: '60'  # seconds
+          ALERT_CHANNELS: 'slack,email'
+
+      # Performance Monitoring
+      - name: Setup Performance Monitoring
+        run: |
+          echo "Configuring performance monitoring for Malaysian users..."
+          npm run monitoring:setup-performance
+        env:
+          PERFORMANCE_BUDGET_API: '1000'    # 1s for API responses
+          PERFORMANCE_BUDGET_WEB: '3000'    # 3s for web pages
+          GEOGRAPHIC_MONITORING: 'malaysia,singapore'
+
+      # Log Aggregation
+      - name: Configure Log Aggregation
+        run: |
+          npm run monitoring:setup-logging
+          npm run monitoring:configure-log-retention
+        env:
+          LOG_RETENTION_DAYS: '2555'  # 7 years for Malaysian compliance
+          LOG_LEVEL_PRODUCTION: 'warn'
+          AUDIT_LOGGING: 'enabled'
+
+  configure-alerts:
+    name: Configure Alerting Rules
+    runs-on: ubuntu-latest
+    needs: setup-monitoring
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Critical System Alerts
+      - name: Setup Critical System Alerts
+        run: |
+          echo "🚨 Configuring critical system alerts..."
+          npm run alerts:configure-critical
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+          EMAIL_ALERTS: ${{ secrets.ALERT_EMAILS }}
+
+      # Malaysian Business Hours Alerts
+      - name: Configure Malaysian Business Hours Alerts
+        run: |
+          echo "🇲🇾 Setting up Malaysian business hours alerting..."
+          npm run alerts:configure-business-hours
+        env:
+          BUSINESS_HOURS_START: '09:00'
+          BUSINESS_HOURS_END: '17:00'
+          BUSINESS_TIMEZONE: 'Asia/Kuala_Lumpur'
+          WEEKEND_ALERTS: 'reduced'
+
+      # Compliance Alerts
+      - name: Setup Compliance Monitoring Alerts
+        run: |
+          echo "⚖️ Configuring Malaysian compliance alerts..."
+          npm run alerts:configure-compliance
+        env:
+          LHDN_COMPLIANCE_THRESHOLD: '100'   # Must be 100% compliant
+          PDPA_VIOLATION_ALERT: 'immediate'
+          SST_CALCULATION_ALERT: 'enabled'
+          TIN_VALIDATION_ALERT: 'enabled'
+
+      # Performance Alerts
+      - name: Configure Performance Alerts
+        run: |
+          echo "⚡ Setting up performance alerts..."
+          npm run alerts:configure-performance
+        env:
+          API_RESPONSE_TIME_THRESHOLD: '1000'      # 1s
+          WEB_PAGE_LOAD_THRESHOLD: '3000'         # 3s
+          ERROR_RATE_THRESHOLD: '1'               # 1%
+          UPTIME_THRESHOLD: '99.9'                # 99.9%
+
+      # Business Metrics Alerts
+      - name: Setup Business Metrics Alerts
+        run: |
+          echo "📊 Configuring business metrics alerts..."
+          npm run alerts:configure-business
+        env:
+          INVOICE_PROCESSING_ALERT: 'enabled'
+          MYINVOIS_SUBMISSION_ALERT: 'enabled'
+          USER_ONBOARDING_ALERT: 'enabled'
+          REVENUE_TRACKING_ALERT: 'enabled'
+
+  test-monitoring:
+    name: Test Monitoring Setup
+    runs-on: ubuntu-latest
+    needs: configure-alerts
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test Health Checks
+        run: |
+          echo "🔍 Testing monitoring health checks..."
+          npm run monitoring:test-health-checks
+          npm run monitoring:verify-metrics-collection
+
+      - name: Test Alert Channels
+        run: |
+          echo "📢 Testing alert channels..."
+          npm run alerts:test-slack
+          npm run alerts:test-email
+          npm run alerts:test-pagerduty
+
+      - name: Verify Malaysian Business Hours Logic
+        run: |
+          echo "🇲🇾 Testing Malaysian business hours logic..."
+          npm run alerts:test-business-hours
+          npm run alerts:test-timezone-handling
+
+      - name: Test Compliance Monitoring
+        run: |
+          echo "⚖️ Testing compliance monitoring..."
+          npm run monitoring:test-compliance-tracking
+          npm run monitoring:verify-audit-logs
+
+  deploy-dashboards:
+    name: Deploy Monitoring Dashboards
+    runs-on: ubuntu-latest
+    needs: test-monitoring
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Grafana Dashboards
+      - name: Deploy Grafana Dashboards
+        run: |
+          echo "📊 Deploying Grafana dashboards..."
+          npm run dashboards:deploy-grafana
+        env:
+          GRAFANA_API_URL: ${{ secrets.GRAFANA_API_URL }}
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+
+      - name: Deploy Malaysian Business Dashboard
+        run: |
+          echo "🇲🇾 Deploying Malaysian business metrics dashboard..."
+          npm run dashboards:deploy-malaysian-business
+        env:
+          DASHBOARD_TEMPLATE: 'malaysian-einvoice-business'
+
+      - name: Deploy Technical Dashboard
+        run: |
+          echo "🔧 Deploying technical monitoring dashboard..."
+          npm run dashboards:deploy-technical
+        env:
+          DASHBOARD_TEMPLATE: 'technical-monitoring'
+
+      - name: Deploy Compliance Dashboard
+        run: |
+          echo "⚖️ Deploying compliance monitoring dashboard..."
+          npm run dashboards:deploy-compliance
+        env:
+          DASHBOARD_TEMPLATE: 'malaysian-compliance'
+
+      # Status Page Setup
+      - name: Setup Status Page
+        run: |
+          echo "📋 Setting up public status page..."
+          npm run status-page:deploy
+        env:
+          STATUS_PAGE_URL: ${{ secrets.STATUS_PAGE_URL }}
+          STATUS_PAGE_API_KEY: ${{ secrets.STATUS_PAGE_API_KEY }}
+
+  verify-monitoring:
+    name: Verify Monitoring Setup
+    runs-on: ubuntu-latest
+    needs: deploy-dashboards
+    
+    steps:
+      - name: Final Monitoring Verification
+        run: |
+          echo "✅ Verifying complete monitoring setup..."
+          
+          # Check all monitoring services
+          npm run monitoring:verify-all
+          
+          # Test Malaysian business hours functionality
+          npm run monitoring:test-malaysian-features
+          
+          # Verify compliance monitoring
+          npm run monitoring:verify-compliance-tracking
+          
+          # Test alert routing
+          npm run alerts:verify-routing
+          
+          echo "🎉 Monitoring setup complete for Malaysian e-Invoice system!"
+
+      - name: Generate Monitoring Report
+        run: |
+          npm run monitoring:generate-setup-report
+          echo "📊 Monitoring setup report generated"
+
+      - name: Notification
+        run: |
+          echo "🇲🇾 Malaysian e-Invoice monitoring system is now active!"
+          echo "📊 Dashboards: Available at ${{ secrets.GRAFANA_API_URL }}"
+          echo "🚨 Alerts: Configured for Malaysian business hours"
+          echo "📋 Status Page: ${{ secrets.STATUS_PAGE_URL }}"
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

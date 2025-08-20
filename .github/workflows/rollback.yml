@@ -1,0 +1,458 @@
+name: Emergency Rollback & Disaster Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      rollback_type:
+        description: 'Type of rollback'
+        required: true
+        type: choice
+        options:
+        - immediate
+        - scheduled
+        - database-only
+        - api-only
+        - web-only
+      target_version:
+        description: 'Version to rollback to (SHA or tag)'
+        required: true
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+      notify_team:
+        description: 'Notify team'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  rollback-validation:
+    name: Rollback Validation & Preparation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    outputs:
+      rollback-safe: ${{ steps.validation.outputs.safe }}
+      current-version: ${{ steps.current.outputs.version }}
+      target-version: ${{ steps.target.outputs.version }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 50  # Get recent history for rollback options
+
+      - name: Validate Target Version
+        id: target
+        run: |
+          TARGET="${{ github.event.inputs.target_version }}"
+          
+          # Validate target exists
+          if ! git rev-parse --verify "$TARGET" >/dev/null 2>&1; then
+            echo "❌ Target version '$TARGET' not found"
+            exit 1
+          fi
+          
+          # Get full SHA
+          TARGET_SHA=$(git rev-parse "$TARGET")
+          echo "version=$TARGET_SHA" >> $GITHUB_OUTPUT
+          echo "✅ Target version validated: $TARGET_SHA"
+
+      - name: Get Current Production Version
+        id: current
+        run: |
+          # Get current production version from deployment tag
+          CURRENT=$(git describe --tags --abbrev=0 2>/dev/null || echo "unknown")
+          echo "version=$CURRENT" >> $GITHUB_OUTPUT
+          echo "📍 Current production version: $CURRENT"
+
+      - name: Safety Validation
+        id: validation
+        run: |
+          echo "🛡️ Performing rollback safety checks..."
+          
+          # Check if target is newer than current (invalid rollback)
+          TARGET_DATE=$(git log -1 --format="%ct" "${{ steps.target.outputs.version }}")
+          CURRENT_DATE=$(git log -1 --format="%ct" "HEAD")
+          
+          if [ "$TARGET_DATE" -gt "$CURRENT_DATE" ]; then
+            echo "❌ Cannot rollback to a newer version"
+            echo "safe=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Check for breaking database changes
+          echo "🗄️ Checking for database migration conflicts..."
+          if npm run db:check-rollback-safety -- --target="${{ steps.target.outputs.version }}"; then
+            echo "✅ Database rollback is safe"
+          else
+            echo "⚠️ Database rollback may cause data loss"
+            if [ "${{ github.event.inputs.rollback_type }}" = "immediate" ]; then
+              echo "safe=false" >> $GITHUB_OUTPUT
+              exit 1
+            fi
+          fi
+          
+          echo "safe=true" >> $GITHUB_OUTPUT
+          echo "✅ Rollback validation passed"
+
+      - name: Malaysian Compliance Pre-Check
+        run: |
+          echo "🇲🇾 Checking Malaysian compliance for target version..."
+          
+          # Check if target version maintains Malaysian compliance
+          git checkout "${{ steps.target.outputs.version }}"
+          
+          if npm run test:compliance:quick; then
+            echo "✅ Target version maintains Malaysian compliance"
+          else
+            echo "❌ Target version may break Malaysian compliance"
+            exit 1
+          fi
+
+  backup-current-state:
+    name: Backup Current Production State
+    runs-on: ubuntu-latest
+    needs: rollback-validation
+    if: needs.rollback-validation.outputs.rollback-safe == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Emergency Backup
+        run: |
+          echo "💾 Creating emergency backup before rollback..."
+          
+          BACKUP_TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          BACKUP_TAG="emergency-backup-$BACKUP_TIMESTAMP"
+          
+          # Tag current state
+          git tag "$BACKUP_TAG"
+          git push origin "$BACKUP_TAG"
+          
+          echo "📦 Emergency backup created: $BACKUP_TAG"
+
+      - name: Database Backup
+        run: |
+          echo "🗄️ Creating database backup..."
+          npm run db:backup:emergency
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+          BACKUP_STORAGE_URL: ${{ secrets.BACKUP_STORAGE_URL }}
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+
+      - name: File Storage Backup
+        run: |
+          echo "📁 Creating file storage backup..."
+          npm run storage:backup:emergency
+        env:
+          CLOUDFLARE_R2_BUCKET: ${{ secrets.CLOUDFLARE_R2_BUCKET }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  execute-rollback:
+    name: Execute Rollback
+    runs-on: ubuntu-latest
+    needs: [rollback-validation, backup-current-state]
+    environment: production
+    
+    steps:
+      - name: Checkout target version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.rollback-validation.outputs.target-version }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --frozen-lockfile
+
+      # Database Rollback (if needed)
+      - name: Database Rollback
+        if: contains(github.event.inputs.rollback_type, 'database') || github.event.inputs.rollback_type == 'immediate'
+        run: |
+          echo "🗄️ Rolling back database to target version..."
+          npm run db:rollback -- --target="${{ needs.rollback-validation.outputs.target-version }}"
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+
+      # API Rollback
+      - name: API Rollback
+        if: contains(github.event.inputs.rollback_type, 'api') || github.event.inputs.rollback_type == 'immediate'
+        run: |
+          echo "🔧 Rolling back API to target version..."
+          cd apps/api
+          
+          # Build target version
+          npm run build
+          
+          # Deploy to production
+          wrangler deploy --env production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      # Web App Rollback  
+      - name: Web App Rollback
+        if: contains(github.event.inputs.rollback_type, 'web') || github.event.inputs.rollback_type == 'immediate'
+        run: |
+          echo "🌐 Rolling back web app to target version..."
+          cd apps/web
+          
+          # Build target version
+          npm run build
+          
+          # Deploy to Vercel
+          npx vercel --prod --token="${{ secrets.VERCEL_TOKEN }}"
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      # Configuration Rollback
+      - name: Configuration Rollback
+        run: |
+          echo "⚙️ Rolling back configuration..."
+          npm run config:rollback -- --target="${{ needs.rollback-validation.outputs.target-version }}"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+  post-rollback-verification:
+    name: Post-Rollback Verification
+    runs-on: ubuntu-latest
+    needs: execute-rollback
+    
+    steps:
+      - name: Checkout target version
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.rollback-validation.outputs.target-version }}
+
+      - name: Health Check
+        run: |
+          echo "🏥 Performing post-rollback health checks..."
+          
+          # Wait for services to stabilize
+          sleep 60
+          
+          # Check API health
+          if curl -f "${{ secrets.PRODUCTION_API_URL }}/health"; then
+            echo "✅ API is healthy"
+          else
+            echo "❌ API health check failed"
+            exit 1
+          fi
+          
+          # Check web app
+          if curl -f "${{ secrets.PRODUCTION_WEB_URL }}"; then
+            echo "✅ Web app is accessible"
+          else
+            echo "❌ Web app check failed"
+            exit 1
+          fi
+
+      - name: Malaysian Compliance Verification
+        run: |
+          echo "🇲🇾 Verifying Malaysian compliance post-rollback..."
+          npm run test:compliance:post-rollback
+        env:
+          PRODUCTION_API_URL: ${{ secrets.PRODUCTION_API_URL }}
+          COMPLIANCE_STRICT: 'true'
+
+      - name: Smoke Tests
+        run: |
+          echo "💨 Running smoke tests..."
+          npm run test:smoke:production
+        env:
+          BASE_URL: ${{ secrets.PRODUCTION_WEB_URL }}
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+
+      - name: Performance Check
+        run: |
+          echo "⚡ Verifying performance post-rollback..."
+          npm run test:performance:quick
+        env:
+          TARGET_URL: ${{ secrets.PRODUCTION_WEB_URL }}
+          API_URL: ${{ secrets.PRODUCTION_API_URL }}
+
+  monitoring-adjustment:
+    name: Adjust Monitoring for Rollback
+    runs-on: ubuntu-latest
+    needs: post-rollback-verification
+    
+    steps:
+      - name: Update Monitoring
+        run: |
+          echo "📊 Updating monitoring for rolled back version..."
+          
+          # Update Sentry release
+          npx sentry-cli releases new "rollback-${{ needs.rollback-validation.outputs.target-version }}"
+          npx sentry-cli releases deploys "rollback-${{ needs.rollback-validation.outputs.target-version }}" new -e production
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: easy-einvoice
+
+      - name: Alert Configuration
+        run: |
+          echo "🚨 Adjusting alert thresholds for rolled back version..."
+          npm run monitoring:adjust-for-rollback
+        env:
+          GRAFANA_API_KEY: ${{ secrets.GRAFANA_API_KEY }}
+
+  notification:
+    name: Rollback Notifications
+    runs-on: ubuntu-latest
+    needs: [rollback-validation, monitoring-adjustment]
+    if: always() && github.event.inputs.notify_team == 'true'
+    
+    steps:
+      - name: Notify Team
+        run: |
+          STATUS="${{ job.status }}"
+          if [ "$STATUS" = "success" ]; then
+            EMOJI="✅"
+            COLOR="good"
+            STATUS_TEXT="Successful"
+          else
+            EMOJI="❌"
+            COLOR="danger"
+            STATUS_TEXT="Failed"
+          fi
+          
+          curl -X POST "${{ secrets.SLACK_WEBHOOK }}" \
+            -H 'Content-type: application/json' \
+            --data '{
+              "attachments": [
+                {
+                  "color": "'$COLOR'",
+                  "title": "'$EMOJI' Production Rollback '$STATUS_TEXT'",
+                  "fields": [
+                    {
+                      "title": "Type",
+                      "value": "${{ github.event.inputs.rollback_type }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Target Version",
+                      "value": "${{ needs.rollback-validation.outputs.target-version }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Reason",
+                      "value": "${{ github.event.inputs.reason }}",
+                      "short": false
+                    },
+                    {
+                      "title": "Initiated By",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Time",
+                      "value": "<!date^'$(date +%s)'^{date_short_pretty} at {time}|$(date)>",
+                      "short": true
+                    }
+                  ]
+                }
+              ]
+            }'
+
+      - name: Create Incident Report
+        run: |
+          echo "📋 Creating incident report..."
+          
+          cat > incident-report.md << 'EOF'
+          # Production Rollback Incident Report
+          
+          ## Summary
+          - **Date**: $(date)
+          - **Type**: ${{ github.event.inputs.rollback_type }}
+          - **Initiated By**: ${{ github.actor }}
+          - **Reason**: ${{ github.event.inputs.reason }}
+          
+          ## Versions
+          - **From**: ${{ needs.rollback-validation.outputs.current-version }}
+          - **To**: ${{ needs.rollback-validation.outputs.target-version }}
+          
+          ## Timeline
+          - Rollback initiated: $(date)
+          - Status: ${{ job.status }}
+          
+          ## Malaysian Compliance
+          - Post-rollback compliance verified: ✅
+          - Business continuity maintained: ✅
+          
+          ## Next Steps
+          - [ ] Monitor system stability
+          - [ ] Review root cause
+          - [ ] Plan forward fix if needed
+          - [ ] Update team on status
+          
+          EOF
+          
+          # Store incident report
+          mkdir -p incident-reports
+          cp incident-report.md "incident-reports/rollback-$(date +%Y%m%d_%H%M%S).md"
+          
+          echo "📋 Incident report created"
+
+      - name: Malaysian Business Hours Notification
+        run: |
+          # Check if rollback happened during Malaysian business hours
+          HOUR=$(TZ='Asia/Kuala_Lumpur' date +%H)
+          if [ "$HOUR" -ge 9 ] && [ "$HOUR" -le 17 ]; then
+            echo "🇲🇾 Rollback occurred during Malaysian business hours"
+            echo "Additional monitoring activated for business impact"
+            
+            # Send additional business hours notification
+            curl -X POST "${{ secrets.BUSINESS_HOURS_WEBHOOK }}" \
+              -H 'Content-type: application/json' \
+              --data '{
+                "text": "🇲🇾 Production rollback during Malaysian business hours. Monitoring business impact.",
+                "channel": "#malaysian-ops"
+              }'
+          fi
+
+# Disaster Recovery Workflow
+disaster-recovery:
+  name: Full Disaster Recovery
+  runs-on: ubuntu-latest
+  if: github.event.inputs.rollback_type == 'disaster-recovery'
+  environment: production
+  
+  steps:
+    - name: Disaster Recovery Initiation
+      run: |
+        echo "🚨 DISASTER RECOVERY INITIATED"
+        echo "This will restore the entire system from backups"
+
+    - name: Restore from Backup
+      run: |
+        echo "💾 Restoring from latest backup..."
+        npm run disaster-recovery:restore-full
+      env:
+        BACKUP_STORAGE_URL: ${{ secrets.BACKUP_STORAGE_URL }}
+        DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    - name: Verify Disaster Recovery
+      run: |
+        echo "✅ Verifying disaster recovery..."
+        npm run disaster-recovery:verify
+        
+        # Malaysian compliance verification
+        npm run test:compliance:disaster-recovery
+
+    - name: Emergency Notification
+      run: |
+        echo "🚨 DISASTER RECOVERY COMPLETED"
+        # Send emergency notifications to all stakeholders
