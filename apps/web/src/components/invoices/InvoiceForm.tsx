@@ -4,9 +4,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
-import { ErrorBoundary, withErrorBoundary } from '@/components/error/ErrorBoundary';
-import { FinancialErrorBoundary } from '@/components/error/FinancialErrorBoundary';
+import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { FinancialErrorBoundary } from '@/components/error/financialerrorboundary';
 
 // Custom debounce implementation to avoid lodash dependency
 function debounce<T extends (...args: any[]) => void>(
@@ -54,16 +53,37 @@ import {
   SUPPORTED_CURRENCIES,
   E_INVOICE_TYPES,
   calculateLineTotal,
-  calculateSstAmount,
-  calculateGrandTotal,
-  type InvoiceCreate,
-  type LineItemCreate
+  calculateSstAmount
 } from '@/lib/validation-schemas';
+
+// Extended line item schema for form (includes calculated fields)
+const formLineItemSchema = lineItemCreateSchema.extend({
+  lineTotal: z.string().regex(/^\d+\.\d{2}$/, 'Line total must have 2 decimal places').default('0.00'),
+});
+
+// Extended invoice schema for form (includes additional UI fields)
+const formInvoiceSchema = invoiceCreateSchema.extend({
+  // Flatten buyer contact fields for easier form handling
+  buyerEmail: z.string().email().optional(),
+  buyerPhone: z.string().max(20).optional(),
+  buyerAddress: z.string().max(500).optional(), // Simplified as single string
+  
+  // Additional form fields
+  status: z.enum(['draft', 'pending', 'sent']).default('draft'),
+  isConsolidated: z.boolean().default(false),
+  referenceInvoiceId: z.string().optional(),
+  
+  // Calculated totals (read-only in form)
+  subtotal: z.string().default('0.00'),
+  sstAmount: z.string().default('0.00'),
+  totalDiscount: z.string().default('0.00'),
+  grandTotal: z.string().default('0.00'),
+});
 
 // Form schema combining invoice and line items
 const formSchema = z.object({
-  invoice: invoiceCreateSchema,
-  lineItems: z.array(lineItemCreateSchema).min(1, 'At least one line item is required'),
+  invoice: formInvoiceSchema,
+  lineItems: z.array(formLineItemSchema).min(1, 'At least one line item is required'),
   buyerId: z.string().optional(),
 });
 
@@ -166,7 +186,7 @@ export default function InvoiceForm({
         unitPrice: '0.00',
         discountAmount: '0.00',
         lineTotal: '0.00',
-        sstRate: '0.00',
+        sstRate: 0,
         sstAmount: '0.00',
       }],
     },
@@ -226,7 +246,7 @@ export default function InvoiceForm({
         const quantity = safeParseFloat(item.quantity);
         const unitPrice = safeParseFloat(item.unitPrice);
         const discount = safeParseFloat(item.discountAmount);
-        const sstRate = safeParseFloat(item.sstRate);
+        const sstRate = typeof item.sstRate === 'number' ? item.sstRate : safeParseFloat(String(item.sstRate));
 
         // Skip invalid line items
         if (quantity <= 0 || unitPrice < 0) continue;
@@ -331,7 +351,8 @@ export default function InvoiceForm({
         quantity: '1',
         unitPrice: '0.00',
         discountAmount: '0.00',
-        sstRate: '0.00',
+        lineTotal: '0.00',
+        sstRate: 0,
         sstAmount: '0.00',
       });
     } catch (error) {
@@ -750,11 +771,14 @@ export default function InvoiceForm({
                     SST Rate (%)
                   </label>
                   <select
-                    {...register(`lineItems.${index}.sstRate`)}
+                    {...register(`lineItems.${index}.sstRate`, {
+                      setValueAs: (value: string) => parseFloat(value)
+                    })}
                     className="input mt-1"
                   >
-                    <option value="0.00">0% (No SST)</option>
-                    <option value="6.00">6% (Standard SST)</option>
+                    <option value="0">0% (No SST)</option>
+                    <option value="6">6% (Standard SST)</option>
+                    <option value="10">10% (Service Tax)</option>
                   </select>
                 </div>
 

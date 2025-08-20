@@ -88,14 +88,17 @@ export function createRateLimiter(options: RateLimitOptions) {
         // Clean up old entries periodically
         if (Math.random() < 0.01) { // 1% chance
           const cutoff = Math.floor((now - windowMs) / windowMs);
-          for (const [key] of (globalThis as any).rateLimitCache) {
-            const keyTime = parseInt(key.split(':')[1], 10);
-            if (keyTime < cutoff) {
-              (globalThis as any).rateLimitCache.delete(key);
+          const cache: Map<string, number> = (globalThis as any).rateLimitCache;
+          for (const key of cache.keys()) {
+            const sep = key.lastIndexOf(':');
+            const keyTime = Number.parseInt(key.slice(sep + 1), 10);
+            if (Number.isNaN(keyTime) || keyTime < cutoff) {
+              cache.delete(key);
             }
           }
         }
         
+        // Set rate limit headers for memory-based rate limiting
         c.res.headers.set('X-RateLimit-Limit', maxRequests.toString());
         c.res.headers.set('X-RateLimit-Remaining', Math.max(0, maxRequests - newCount).toString());
         c.res.headers.set('X-RateLimit-Reset', Math.ceil((windowStart + windowMs) / 1000).toString());
