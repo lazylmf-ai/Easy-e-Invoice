@@ -31,7 +31,7 @@ export const lineItemCreateSchema = z.object({
   quantity: z.string().regex(/^\d+(\.\d{1,3})?$/, 'Quantity must be a valid number').default('1'),
   unitPrice: z.string().regex(/^\d+\.\d{2}$/, 'Unit price must have 2 decimal places'),
   discountAmount: z.string().regex(/^\d+\.\d{2}$/, 'Discount must have 2 decimal places').default('0.00'),
-  sstRate: z.number().refine(rate => SST_RATES.includes(rate), 'Invalid SST rate').default(0),
+  sstRate: z.number().refine((rate): rate is typeof SST_RATES[number] => SST_RATES.includes(rate as any), 'Invalid SST rate').default(0),
   sstAmount: z.string().regex(/^\d+\.\d{2}$/, 'SST amount must have 2 decimal places').default('0.00'),
   taxExemptionCode: z.string().max(20).optional(),
   notes: z.string().max(500).optional(),

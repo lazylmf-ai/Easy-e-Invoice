@@ -94,7 +94,12 @@ function CreateInvoicePageContent() {
         reportError(new Error(`Malaysian e-Invoice Validation Error: ${errorMsg}`), {
           feature: 'invoice_validation',
           compliance_system: 'lhdn',
-          invoice_data: JSON.stringify(data, null, 2).substring(0, 1000) // Truncate for security
+          invoice_data: JSON.stringify({
+            // Only include non-sensitive fields for debugging
+            lineItemCount: data.lineItems?.length,
+            hasValidation: !!data.invoice,
+            invoiceType: data.invoice?.eInvoiceType
+          })
         });
       }
     } finally {

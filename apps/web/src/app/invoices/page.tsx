@@ -62,8 +62,7 @@ function InvoicesPageContent() {
   const router = useRouter();
   
   // Error handling
-  const reportError = useErrorHandler();
-  const handleAsyncError = useAsyncErrorHandler();
+
 
   const fetchInvoices = async (page = 1) => {
     if (!user?.hasCompletedOnboarding) {

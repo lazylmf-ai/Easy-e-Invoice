@@ -29,7 +29,7 @@ app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', secureHeaders());
 app.use('*', cors({
-  origin: (origin, c) => {
+  origin: (origin: string) => {
     const allowedOrigins = [
       'http://localhost:3000', 
       'http://localhost:3001',
@@ -39,9 +39,9 @@ app.use('*', cors({
     ];
     
     // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return true;
+    if (!origin) return origin;
     
-    return allowedOrigins.includes(origin);
+    return allowedOrigins.includes(origin) ? origin : null;
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: [

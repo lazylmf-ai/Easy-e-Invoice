@@ -236,7 +236,7 @@ export class MalaysianBusinessMonitor {
     const level = issue.severity === 'high' ? 'error' : 
                   issue.severity === 'medium' ? 'warning' : 'info';
 
-    Sentry.withScope((scope) => {
+    Sentry.withScope((scope: any) => {
       scope.setTag('compliance_issue', true);
       scope.setTag('issue_type', issue.type);
       scope.setTag('rule_code', issue.rule);
@@ -297,7 +297,7 @@ export function reportError(error: Error, context?: {
   organizationId?: string;
   additionalData?: Record<string, any>;
 }) {
-  Sentry.withScope((scope) => {
+  Sentry.withScope((scope: any) => {
     scope.setTag('country', 'MY');
     scope.setTag('business_system', 'malaysian_einvoice');
     

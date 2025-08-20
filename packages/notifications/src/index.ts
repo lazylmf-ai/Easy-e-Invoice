@@ -1,12 +1,12 @@
 // Easy e-Invoice Notification Package
 // Email and notification service with Malaysian business context
 
-export * from './types';
-export * from './service';
-export * from './templates';
+// Import dependencies
+import { v4 as uuidv4 } from 'uuid';
+import { MALAYSIAN_LOCALIZATION } from './types';
 
-// Re-export commonly used types
-export {
+// Import types for internal use
+import type {
   NotificationService,
   NotificationPayload,
   NotificationResult,
@@ -27,20 +27,20 @@ export {
   RecipientNotFoundError,
   DeliveryFailedError,
   RateLimitExceededError,
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  MALAYSIAN_LOCALIZATION
+  DEFAULT_NOTIFICATION_PREFERENCES
 } from './types';
 
-// Re-export main service
-export { EasyInvoiceNotificationService } from './service';
-
-// Re-export template utilities
-export { 
+import { EasyInvoiceNotificationService } from './service';
+import { 
   EMAIL_TEMPLATES, 
   getEmailTemplate, 
   getAllTemplateIds, 
   getTemplateSupportedLanguages 
 } from './templates';
+
+export * from './types';
+export * from './service';
+export * from './templates';
 
 // Factory function to create notification service
 export const createNotificationService = (
@@ -356,7 +356,3 @@ export default {
   validateNotificationPayload,
   shouldSendNotification
 };
-
-// Import uuid for ID generation
-import { v4 as uuidv4 } from 'uuid';
-import { MALAYSIAN_LOCALIZATION } from './types';

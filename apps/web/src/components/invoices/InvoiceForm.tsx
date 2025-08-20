@@ -331,7 +331,7 @@ export default function InvoiceForm({
         quantity: '1',
         unitPrice: '0.00',
         discountAmount: '0.00',
-        sstRate: 0,
+        sstRate: '0.00',
         sstAmount: '0.00',
       });
     } catch (error) {

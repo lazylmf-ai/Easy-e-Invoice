@@ -1,6 +1,9 @@
 // Performance utilities and optimization helpers
 
-import { trackPerformanceIssue } from '@einvoice/shared/monitoring/sentry';
+// Mock function until shared package is properly configured
+const trackPerformanceIssue = (name: string, value: number, threshold: number, context?: any) => {
+  console.warn(`Performance issue: ${name} = ${value}ms (threshold: ${threshold}ms)`, context);
+};
 
 // Performance monitoring
 export class PerformanceMonitor {
@@ -236,7 +239,9 @@ export function memoize<T extends (...args: any[]) => any>(
     // Clean up expired entries
     if (cache.size >= maxSize) {
       const oldestKey = cache.keys().next().value;
-      cache.delete(oldestKey);
+      if (oldestKey !== undefined) {
+        cache.delete(oldestKey);
+      }
     }
     
     // Store new value

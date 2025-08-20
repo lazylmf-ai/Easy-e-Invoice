@@ -1,13 +1,13 @@
 'use client';
 
 import React, { Suspense, lazy, ComponentType } from 'react';
-import { Loader2 } from 'lucide-react';
+import { ArrowPathIcon } from '@heroicons/react/24/outline';
 
 // Loading component
 const LoadingSpinner = ({ message = 'Loading...' }: { message?: string }) => (
   <div className="flex items-center justify-center p-8">
     <div className="flex flex-col items-center space-y-4">
-      <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <ArrowPathIcon className="h-8 w-8 animate-spin text-blue-600" />
       <p className="text-sm text-gray-600">{message}</p>
     </div>
   </div>
@@ -68,7 +68,7 @@ export function createLazyComponent<T extends ComponentType<any>>(
         <LazyComponent {...props} ref={ref} />
       </Suspense>
     </LazyLoadErrorBoundary>
-  ));
+  )) as T;
 }
 
 // Lazy loading wrapper with intersection observer

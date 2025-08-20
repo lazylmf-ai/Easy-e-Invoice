@@ -15,7 +15,11 @@ export function createRateLimiter(options: RateLimitOptions) {
   const { windowMs, maxRequests, message = 'Too many requests' } = options;
   
   return async (c: Context<{ Bindings: Env }>, next: Next) => {
-    const ip = c.req.header('CF-Connecting-IP') || c.req.header('X-Forwarded-For') || 'unknown';
+    const ipHeader =
+      c.req.header('CF-Connecting-IP') ??
+      c.req.header('X-Real-IP') ??
+      c.req.header('X-Forwarded-For')?.split(',')[0].trim();
+    const ip = ipHeader ?? 'unknown';
     const now = Date.now();
     const windowStart = Math.floor(now / windowMs) * windowMs;
     const windowKey = `rate_limit:${ip}:${windowStart}`;
@@ -23,16 +27,26 @@ export function createRateLimiter(options: RateLimitOptions) {
     try {
       // Use Cloudflare KV for rate limiting if available
       if (c.env?.RATE_LIMITS) {
-        const currentStr = await c.env.RATE_LIMITS.get(windowKey);
-        const current = currentStr ? parseInt(currentStr, 10) : 0;
-        const newCount = current + 1;
+        const currentCount = await c.env.RATE_LIMITS.get(windowKey);
+        const newCount = (parseInt(currentCount || '0', 10)) + 1;
         
         if (newCount > maxRequests) {
-          return c.json({
-            error: 'Rate limit exceeded',
-            message,
-            retryAfter: Math.ceil((windowStart + windowMs - now) / 1000)
-          }, 429);
+          const retryAfter = Math.ceil((windowStart + windowMs - now) / 1000);
+          const reset = Math.ceil((windowStart + windowMs) / 1000);
+          return c.json(
+            {
+              error: 'Rate limit exceeded',
+              message,
+              retryAfter,
+            },
+            429,
+            {
+              'Retry-After': retryAfter.toString(),
+              'X-RateLimit-Limit': maxRequests.toString(),
+              'X-RateLimit-Remaining': '0',
+              'X-RateLimit-Reset': reset.toString(),
+            }
+          );
         }
         
         // Store the new count with TTL
@@ -53,11 +67,12 @@ export function createRateLimiter(options: RateLimitOptions) {
         
         // Simple in-memory tracking (limited to single worker instance)
         const memoryKey = `${ip}:${Math.floor(now / windowMs)}`;
-        if (!global.rateLimitCache) {
-          global.rateLimitCache = new Map();
+        const globalCache = (globalThis as any).rateLimitCache;
+        if (!globalCache) {
+          (globalThis as any).rateLimitCache = new Map();
         }
         
-        const currentCount = global.rateLimitCache.get(memoryKey) || 0;
+        const currentCount = (globalThis as any).rateLimitCache.get(memoryKey) || 0;
         const newCount = currentCount + 1;
         
         if (newCount > maxRequests) {
@@ -68,15 +83,15 @@ export function createRateLimiter(options: RateLimitOptions) {
           }, 429);
         }
         
-        global.rateLimitCache.set(memoryKey, newCount);
+        (globalThis as any).rateLimitCache.set(memoryKey, newCount);
         
         // Clean up old entries periodically
         if (Math.random() < 0.01) { // 1% chance
           const cutoff = Math.floor((now - windowMs) / windowMs);
-          for (const [key] of global.rateLimitCache) {
+          for (const [key] of (globalThis as any).rateLimitCache) {
             const keyTime = parseInt(key.split(':')[1], 10);
             if (keyTime < cutoff) {
-              global.rateLimitCache.delete(key);
+              (globalThis as any).rateLimitCache.delete(key);
             }
           }
         }

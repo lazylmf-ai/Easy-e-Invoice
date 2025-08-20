@@ -4,12 +4,8 @@
 // Import uuid for ID generation
 import { v4 as uuidv4 } from 'uuid';
 
-export * from './types';
-export * from './server';
-export * from './progress-tracker';
-
-// Re-export commonly used types
-export type {
+// Import types and implementations
+import {
   WebSocketMessage,
   WebSocketConnection,
   WebSocketServer,
@@ -22,14 +18,16 @@ export type {
   ConnectionLimitError,
   AuthenticationError,
   RateLimitError,
-  MessageSizeError
+  MessageSizeError,
+  DEFAULT_WEBSOCKET_CONFIG
 } from './types';
 
-export { DEFAULT_WEBSOCKET_CONFIG } from './types';
+import { CloudflareWebSocketServer } from './server';
+import { JobProgressTracker } from './progress-tracker';
 
-// Re-export main implementations
-export { CloudflareWebSocketServer } from './server';
-export { JobProgressTracker } from './progress-tracker';
+export * from './types';
+export * from './server';
+export * from './progress-tracker';
 
 // Utility functions for WebSocket management
 export const createWebSocketServer = (
@@ -269,6 +267,3 @@ export default {
   createErrorMessage,
   isRetryableError
 };
-
-// Import uuid for ID generation
-import { v4 as uuidv4 } from 'uuid';
