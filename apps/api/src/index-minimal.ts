@@ -9,6 +9,7 @@ export interface Env {
   JWT_SECRET: string;
   RESEND_API_KEY: string;
   FRONTEND_URL?: string;
+  [key: string]: string | undefined;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -18,9 +19,32 @@ app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', secureHeaders());
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'https://yourdomain.com'],
+  origin: (origin, c) => {
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:3001',
+      'https://easyeinvoice.com.my',
+      'https://www.easyeinvoice.com.my',
+      'https://staging.easyeinvoice.com.my'
+    ];
+    
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return true;
+    
+    return allowedOrigins.includes(origin);
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'X-File-Name'
+  ],
+  credentials: true,
+  maxAge: 86400, // 24 hours
 }));
 
 // Health check endpoint
@@ -41,14 +65,14 @@ app.get('/health', (c) => {
     status: 'ok',
     database: 'connected',
     timestamp: new Date().toISOString(),
-    environment: c.env.NODE_ENV || 'development',
+    environment: c.env?.NODE_ENV || 'development',
   });
 });
 
 // Test database connection
 app.get('/test-db', async (c) => {
   try {
-    const dbUrl = c.env.DATABASE_URL;
+    const dbUrl = c.env?.DATABASE_URL;
     if (!dbUrl) {
       return c.json({ error: 'DATABASE_URL not configured' }, 500);
     }
@@ -114,6 +138,4 @@ app.notFound((c) => {
   }, 404);
 });
 
-export default {
-  fetch: app.fetch,
-};
+export default app;

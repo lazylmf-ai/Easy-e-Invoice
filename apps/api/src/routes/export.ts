@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { validateBody } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
 import { generalRateLimit } from '../middleware/rate-limit';
 import { createDatabaseFromEnv } from '@einvoice/database';
 import { invoices, invoiceLines, organizations, users } from '@einvoice/database/schema';
@@ -67,8 +67,8 @@ app.post('/pdf',
   validateBody(pdfExportSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const data = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const data = getValidatedBody(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -135,8 +135,8 @@ app.post('/json',
   validateBody(jsonExportSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const data = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const data = getValidatedBody(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -217,8 +217,8 @@ app.post('/csv',
   validateBody(csvExportSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const data = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const data = getValidatedBody(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -278,8 +278,8 @@ app.post('/batch',
   validateBody(batchExportSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const data = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const data = getValidatedBody(c);
 
       // Generate job ID
       const jobId = `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -320,7 +320,7 @@ app.post('/batch',
 // Get export job status
 app.get('/jobs/:jobId', async (c) => {
   const jobId = c.req.param('jobId');
-  const user = (c as any).get('user');
+  const user = getAuthenticatedUser(c);
   
   const job = exportJobs.get(jobId);
   

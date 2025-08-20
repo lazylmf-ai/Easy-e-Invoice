@@ -37,7 +37,7 @@ const nextConfig = {
   // Transpile internal packages
   transpilePackages: ['@einvoice/shared', '@einvoice/validation'],
 
-  // Skip TypeScript checking for deployment
+  // Temporarily disable TypeScript checking for deployment readiness
   typescript: {
     ignoreBuildErrors: true,
   },

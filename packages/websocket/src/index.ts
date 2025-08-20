@@ -1,12 +1,15 @@
 // Easy e-Invoice WebSocket Package
 // Main exports for real-time progress tracking and notifications
 
+// Import uuid for ID generation
+import { v4 as uuidv4 } from 'uuid';
+
 export * from './types';
 export * from './server';
 export * from './progress-tracker';
 
 // Re-export commonly used types
-export {
+export type {
   WebSocketMessage,
   WebSocketConnection,
   WebSocketServer,
@@ -19,9 +22,10 @@ export {
   ConnectionLimitError,
   AuthenticationError,
   RateLimitError,
-  MessageSizeError,
-  DEFAULT_WEBSOCKET_CONFIG
+  MessageSizeError
 } from './types';
+
+export { DEFAULT_WEBSOCKET_CONFIG } from './types';
 
 // Re-export main implementations
 export { CloudflareWebSocketServer } from './server';

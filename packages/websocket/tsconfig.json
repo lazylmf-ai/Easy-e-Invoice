@@ -10,7 +10,7 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2022"],
-    "types": ["@cloudflare/workers-types", "jest"],
+    "types": ["@cloudflare/workers-types"],
     "resolveJsonModule": true,
     "isolatedModules": true,
     "declaration": true,

@@ -50,6 +50,45 @@ export const clearAuthToken = (): void => {
   localStorage.removeItem('auth_token');
 };
 
+// Secure fetch wrapper with proper error handling
+const secureFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const token = getAuthToken();
+  
+  if (!token) {
+    throw new Error('No authentication token available');
+  }
+  
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    ...options.headers,
+  };
+  
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+    
+    if (response.status === 401) {
+      // Token expired or invalid, clear it
+      clearAuthToken();
+      throw new Error('Authentication expired. Please log in again.');
+    }
+    
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status} ${response.statusText}`);
+    }
+    
+    return response;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Network error occurred');
+  }
+};
+
 // API error types
 export interface ApiError {
   error: string;
@@ -255,12 +294,8 @@ export const api = {
       format?: 'A4' | 'A5';
       language?: 'en' | 'ms';
     }) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/pdf`, {
+      secureFetch(`${process.env.NEXT_PUBLIC_API_URL}/export/pdf`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
         body: JSON.stringify(data),
       }),
 
@@ -270,12 +305,8 @@ export const api = {
       includeLineItems?: boolean;
       minifyOutput?: boolean;
     }) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/json`, {
+      secureFetch(`${process.env.NEXT_PUBLIC_API_URL}/export/json`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
         body: JSON.stringify(data),
       }),
 
@@ -285,12 +316,8 @@ export const api = {
       includeLineItems?: boolean;
       dateFormat?: 'ISO' | 'DD/MM/YYYY' | 'MM/DD/YYYY';
     }) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/csv`, {
+      secureFetch(`${process.env.NEXT_PUBLIC_API_URL}/export/csv`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
         body: JSON.stringify(data),
       }),
 
@@ -313,11 +340,8 @@ export const api = {
       }),
     
     pdf: (invoiceId: string) =>
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/export/pdf/${invoiceId}`, {
+      secureFetch(`${process.env.NEXT_PUBLIC_API_URL}/export/pdf/${invoiceId}`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth_token')}`,
-        },
       }),
   },
 

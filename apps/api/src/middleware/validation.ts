@@ -1,6 +1,23 @@
 import { Context, Next } from 'hono';
 import { z, ZodSchema } from 'zod';
 
+// Enhanced context interface for validated data
+export interface ValidatedContext<T = any> extends Context {
+  get(key: 'validatedBody'): T;
+  get(key: 'validatedQuery'): T;
+  get(key: 'validatedParams'): T;
+  get(key: string): any;
+}
+
+// Utility function to safely get validated body
+export function getValidatedBody<T>(c: Context): T {
+  const validatedBody = c.get('validatedBody');
+  if (!validatedBody) {
+    throw new Error('No validated body found. Ensure validateBody middleware is applied.');
+  }
+  return validatedBody as T;
+}
+
 export function validateBody<T>(schema: ZodSchema<T>) {
   return async (c: Context, next: Next) => {
     try {

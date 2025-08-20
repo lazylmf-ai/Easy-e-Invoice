@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, ArrowUpTrayIcon, DocumentArrowDownIcon } from '@heroicons/react/24/outline';
+import { ErrorBoundary, useErrorHandler } from '@/components/ErrorBoundary';
+import { AsyncErrorBoundary, useAsyncErrorHandler } from '@/components/error/ErrorBoundary';
 
 interface Invoice {
   id: string;
@@ -37,7 +39,7 @@ const E_INVOICE_TYPES = {
   '04': 'Refund Note',
 };
 
-export default function InvoicesPage() {
+function InvoicesPageContent() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -58,6 +60,10 @@ export default function InvoicesPage() {
 
   const { user } = useAuth();
   const router = useRouter();
+  
+  // Error handling
+  const reportError = useErrorHandler();
+  const handleAsyncError = useAsyncErrorHandler();
 
   const fetchInvoices = async (page = 1) => {
     if (!user?.hasCompletedOnboarding) {
@@ -465,5 +471,45 @@ export default function InvoicesPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Enhanced error boundaries for invoice management
+const InvoicePageErrorFallback = ({ error, resetError }: { error: Error | null; resetError: () => void }) => (
+  <div className="min-h-screen bg-gray-50 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-red-50 border border-red-200 rounded-md p-6 text-center">
+        <h2 className="text-lg font-medium text-red-800 mb-4">
+          Invoice Management Error
+        </h2>
+        <p className="text-red-700 mb-6">
+          {error?.message || 'Failed to load your Malaysian e-Invoices. This could be due to network issues or data corruption.'}
+        </p>
+        <div className="space-y-3">
+          <button
+            onClick={resetError}
+            className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 mr-3"
+          >
+            Try Again
+          </button>
+          <button
+            onClick={() => window.location.href = '/dashboard'}
+            className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+export default function InvoicesPage() {
+  return (
+    <AsyncErrorBoundary fallback={InvoicePageErrorFallback}>
+      <ErrorBoundary fallback={InvoicePageErrorFallback}>
+        <InvoicesPageContent />
+      </ErrorBoundary>
+    </AsyncErrorBoundary>
   );
 }

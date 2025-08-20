@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { api } from '@/lib/api';
 import InvoiceForm from '@/components/invoices/InvoiceForm';
+import { ErrorBoundary, InvoiceErrorFallback, useErrorHandler } from '@/components/ErrorBoundary';
+import { AsyncErrorBoundary, useAsyncErrorHandler } from '@/components/error/ErrorBoundary';
 
 function CreateInvoicePageContent() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,6 +16,10 @@ function CreateInvoicePageContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+  
+  // Error handling hooks
+  const reportError = useErrorHandler();
+  const handleAsyncError = useAsyncErrorHandler();
 
   useEffect(() => {
     const templateId = searchParams.get('template');
@@ -30,7 +36,11 @@ function CreateInvoicePageContent() {
       }
     } catch (error: any) {
       console.error('Failed to load template:', error);
-      setError('Failed to load template');
+      const errorMsg = 'Failed to load template';
+      setError(errorMsg);
+      
+      // Report to error monitoring
+      handleAsyncError(new Error(`Template Loading Error: ${error.message || errorMsg}`));
     }
   };
 
@@ -50,11 +60,17 @@ function CreateInvoicePageContent() {
         // Show success message and redirect
         router.push(`/invoices/${response.invoice.id}`);
       } else {
-        throw new Error('Failed to create invoice');
+        throw new Error('Failed to create invoice - invalid response');
       }
     } catch (error: any) {
       console.error('Invoice creation failed:', error);
-      setError(error.message || 'Failed to create invoice. Please try again.');
+      const errorMsg = error.message || 'Failed to create invoice. Please try again.';
+      setError(errorMsg);
+      
+      // Report critical errors to monitoring
+      if (error.name === 'TypeError' || error.name === 'NetworkError') {
+        handleAsyncError(new Error(`Invoice Creation Critical Error: ${errorMsg}`));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +86,17 @@ function CreateInvoicePageContent() {
       setValidationResults(response.validation);
     } catch (error: any) {
       console.error('Invoice validation failed:', error);
-      setError(error.message || 'Failed to validate invoice');
+      const errorMsg = error.message || 'Failed to validate invoice';
+      setError(errorMsg);
+      
+      // Report validation errors for Malaysian compliance issues
+      if (errorMsg.includes('TIN') || errorMsg.includes('SST') || errorMsg.includes('LHDN')) {
+        reportError(new Error(`Malaysian e-Invoice Validation Error: ${errorMsg}`), {
+          feature: 'invoice_validation',
+          compliance_system: 'lhdn',
+          invoice_data: JSON.stringify(data, null, 2).substring(0, 1000) // Truncate for security
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -185,13 +211,15 @@ function CreateInvoicePageContent() {
           </div>
         )}
 
-        <InvoiceForm
-          onSubmit={handleSubmit}
-          onValidate={handleValidate}
-          isLoading={isLoading}
-          templateData={templateData}
-          mode="create"
-        />
+        <ErrorBoundary fallback={InvoiceErrorFallback}>
+          <InvoiceForm
+            onSubmit={handleSubmit}
+            onValidate={handleValidate}
+            isLoading={isLoading}
+            templateData={templateData}
+            mode="create"
+          />
+        </ErrorBoundary>
       </div>
     </div>
   );
@@ -199,12 +227,14 @@ function CreateInvoicePageContent() {
 
 export default function CreateInvoicePage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    }>
-      <CreateInvoicePageContent />
-    </Suspense>
+    <AsyncErrorBoundary fallback={InvoiceErrorFallback}>
+      <Suspense fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      }>
+        <CreateInvoicePageContent />
+      </Suspense>
+    </AsyncErrorBoundary>
   );
 }

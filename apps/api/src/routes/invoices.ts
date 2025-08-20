@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq, desc, and, like, gte, lte, count } from 'drizzle-orm';
-import { authMiddleware } from '../middleware/auth';
-import { validateBody } from '../middleware/validation';
+import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
+import { validateBody, getValidatedBody } from '../middleware/validation';
 import { generalRateLimit } from '../middleware/rate-limit';
 import { createDatabaseFromEnv } from '@einvoice/database';
 import { invoices, invoiceLines, organizations, users } from '@einvoice/database/schema';
@@ -25,7 +25,10 @@ app.use('*', generalRateLimit);
 const paginationSchema = z.object({
   page: z.string().transform(Number).pipe(z.number().int().min(1)).default('1'),
   limit: z.string().transform(Number).pipe(z.number().int().min(1).max(100)).default('20'),
-  search: z.string().optional(),
+  search: z.string()
+    .max(100, 'Search term too long')
+    .regex(/^[a-zA-Z0-9\s\-_]*$/, 'Search contains invalid characters')
+    .optional(),
   status: z.enum(['draft', 'validated', 'submitted', 'approved', 'rejected', 'cancelled']).optional(),
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -50,7 +53,7 @@ const invoiceUpdateSchema = z.object({
 // Get invoices list with pagination and filtering
 app.get('/', async (c) => {
   try {
-    const user = (c as any).get('user');
+    const user = getAuthenticatedUser(c);
     const env = c.env as Env;
     const db = createDatabaseFromEnv(env);
     
@@ -99,7 +102,15 @@ app.get('/', async (c) => {
     }
     
     if (search) {
-      conditions.push(like(invoices.invoiceNumber, `%${search}%`));
+      // Sanitize search input to prevent SQL injection
+      const sanitizedSearch = search
+        .replace(/[%_\\]/g, '\\$&') // Escape SQL wildcards
+        .replace(/[<>'"&]/g, '') // Remove potentially dangerous characters
+        .substring(0, 100); // Limit length
+      
+      if (sanitizedSearch.length > 0) {
+        conditions.push(like(invoices.invoiceNumber, `%${sanitizedSearch}%`));
+      }
     }
     
     if (dateFrom) {
@@ -172,7 +183,7 @@ app.get('/', async (c) => {
 // Get single invoice with line items
 app.get('/:id', async (c) => {
   try {
-    const user = (c as any).get('user');
+    const user = getAuthenticatedUser(c);
     const env = c.env as Env;
     const db = createDatabaseFromEnv(env);
     const invoiceId = c.req.param('id');
@@ -234,10 +245,10 @@ app.post('/',
   validateBody(invoiceWithLinesSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const env = c.env as Env;
       const db = createDatabaseFromEnv(env);
-      const data = (c as any).get('validatedBody');
+      const data = getValidatedBody(c);
       
       // Get user's organization
       const userData = await db
@@ -312,57 +323,75 @@ app.post('/',
       
       const validationScore = calculateValidationScore(validationResults);
       
-      // Create invoice
-      const newInvoice = await db
-        .insert(invoices)
-        .values({
-          orgId: userData[0].orgId,
-          buyerId: data.buyerId,
-          invoiceNumber: data.invoice.invoiceNumber,
-          eInvoiceType: data.invoice.eInvoiceType || '01',
-          issueDate: data.invoice.issueDate,
-          dueDate: data.invoice.dueDate,
-          currency: data.invoice.currency || 'MYR',
-          exchangeRate: data.invoice.exchangeRate || '1.000000',
-          subtotal: subtotal.toFixed(2),
-          sstAmount: sstAmount.toFixed(2),
-          totalDiscount: data.invoice.totalDiscount || '0.00',
-          grandTotal: grandTotal.toFixed(2),
-          isConsolidated: data.invoice.isConsolidated || false,
-          consolidationPeriod: data.invoice.consolidationPeriod,
-          referenceInvoiceId: data.invoice.referenceInvoiceId,
-          status: data.invoice.status || 'draft',
-          validationScore,
-          notes: data.invoice.notes,
-          internalRef: data.invoice.internalRef,
-          poNumber: data.invoice.poNumber,
-          metadata: data.invoice.metadata || {},
-        })
-        .returning();
+      // Create invoice and line items in a transaction
+      const result = await db.transaction(async (tx) => {
+        // Create invoice
+        const newInvoice = await tx
+          .insert(invoices)
+          .values({
+            orgId: userData[0].orgId,
+            buyerId: data.buyerId,
+            invoiceNumber: data.invoice.invoiceNumber,
+            eInvoiceType: data.invoice.eInvoiceType || '01',
+            issueDate: data.invoice.issueDate,
+            dueDate: data.invoice.dueDate,
+            currency: data.invoice.currency || 'MYR',
+            exchangeRate: data.invoice.exchangeRate || '1.000000',
+            subtotal: subtotal.toFixed(2),
+            sstAmount: sstAmount.toFixed(2),
+            totalDiscount: data.invoice.totalDiscount || '0.00',
+            grandTotal: grandTotal.toFixed(2),
+            isConsolidated: data.invoice.isConsolidated || false,
+            consolidationPeriod: data.invoice.consolidationPeriod,
+            referenceInvoiceId: data.invoice.referenceInvoiceId,
+            status: data.invoice.status || 'draft',
+            validationScore,
+            notes: data.invoice.notes,
+            internalRef: data.invoice.internalRef,
+            poNumber: data.invoice.poNumber,
+            metadata: data.invoice.metadata || {},
+          })
+          .returning();
+        
+        if (!newInvoice[0]) {
+          throw new Error('Failed to create invoice');
+        }
+        
+        // Create line items
+        const lineItemsData = data.lineItems.map((line: any, index: number) => ({
+          invoiceId: newInvoice[0].id,
+          lineNumber: index + 1,
+          itemDescription: line.itemDescription,
+          itemSku: line.itemSku,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          discountAmount: line.discountAmount || '0.00',
+          lineTotal: line.lineTotal,
+          sstRate: line.sstRate || '0.00',
+          sstAmount: line.sstAmount || '0.00',
+          taxExemptionCode: line.taxExemptionCode,
+        }));
+        
+        const newLineItems = await tx
+          .insert(invoiceLines)
+          .values(lineItemsData)
+          .returning();
+          
+        if (!newLineItems || newLineItems.length === 0) {
+          throw new Error('Failed to create line items');
+        }
+        
+        return {
+          invoice: newInvoice[0],
+          lineItems: newLineItems,
+        };
+      });
       
-      // Create line items
-      const lineItemsData = data.lineItems.map((line: any, index: number) => ({
-        invoiceId: newInvoice[0].id,
-        lineNumber: index + 1,
-        itemDescription: line.itemDescription,
-        itemSku: line.itemSku,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountAmount: line.discountAmount || '0.00',
-        lineTotal: line.lineTotal,
-        sstRate: line.sstRate || '0.00',
-        sstAmount: line.sstAmount || '0.00',
-        taxExemptionCode: line.taxExemptionCode,
-      }));
-      
-      const newLineItems = await db
-        .insert(invoiceLines)
-        .values(lineItemsData)
-        .returning();
+      const { invoice: newInvoice, lineItems: newLineItems } = result;
       
       return c.json({
         message: 'Invoice created successfully',
-        invoice: newInvoice[0],
+        invoice: newInvoice,
         lineItems: newLineItems,
         validation: {
           score: validationScore,
@@ -385,11 +414,11 @@ app.put('/:id',
   validateBody(invoiceUpdateSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const env = c.env as Env;
       const db = createDatabaseFromEnv(env);
       const invoiceId = c.req.param('id');
-      const data = (c as any).get('validatedBody');
+      const data = getValidatedBody(c);
       
       // Get user's organization
       const userData = await db
@@ -430,63 +459,82 @@ app.put('/:id',
         }, 400);
       }
       
-      // Update invoice
-      const updateData: any = {};
-      if (data.invoice) {
-        Object.assign(updateData, data.invoice);
-        updateData.updatedAt = new Date();
-      }
-      
-      if (Object.keys(updateData).length > 0) {
-        await db
-          .update(invoices)
-          .set(updateData)
-          .where(eq(invoices.id, invoiceId));
-      }
-      
-      // Update line items if provided
-      if (data.lineItems) {
-        // Delete existing line items
-        await db
-          .delete(invoiceLines)
-          .where(eq(invoiceLines.invoiceId, invoiceId));
+      // Update invoice and line items in a transaction
+      const result = await db.transaction(async (tx) => {
+        // Update invoice
+        const updateData: any = {};
+        if (data.invoice) {
+          Object.assign(updateData, data.invoice);
+          updateData.updatedAt = new Date();
+        }
         
-        // Insert new line items
-        const lineItemsData = data.lineItems.map((line: any, index: number) => ({
-          invoiceId,
-          lineNumber: index + 1,
-          itemDescription: line.itemDescription,
-          itemSku: line.itemSku,
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          discountAmount: line.discountAmount || '0.00',
-          lineTotal: line.lineTotal,
-          sstRate: line.sstRate || '0.00',
-          sstAmount: line.sstAmount || '0.00',
-          taxExemptionCode: line.taxExemptionCode,
-        }));
+        if (Object.keys(updateData).length > 0) {
+          await tx
+            .update(invoices)
+            .set(updateData)
+            .where(eq(invoices.id, invoiceId));
+        }
         
-        await db
-          .insert(invoiceLines)
-          .values(lineItemsData);
-      }
+        // Update line items if provided
+        if (data.lineItems) {
+          // Delete existing line items
+          await tx
+            .delete(invoiceLines)
+            .where(eq(invoiceLines.invoiceId, invoiceId));
+          
+          // Insert new line items
+          const lineItemsData = data.lineItems.map((line: any, index: number) => ({
+            invoiceId,
+            lineNumber: index + 1,
+            itemDescription: line.itemDescription,
+            itemSku: line.itemSku,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            discountAmount: line.discountAmount || '0.00',
+            lineTotal: line.lineTotal,
+            sstRate: line.sstRate || '0.00',
+            sstAmount: line.sstAmount || '0.00',
+            taxExemptionCode: line.taxExemptionCode,
+          }));
+          
+          const newLineItems = await tx
+            .insert(invoiceLines)
+            .values(lineItemsData)
+            .returning();
+            
+          if (!newLineItems || newLineItems.length === 0) {
+            throw new Error('Failed to create line items');
+          }
+        }
+        
+        // Get updated invoice with line items
+        const updatedInvoice = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.id, invoiceId))
+          .limit(1);
+        
+        if (!updatedInvoice[0]) {
+          throw new Error('Failed to retrieve updated invoice');
+        }
+        
+        const lineItems = await tx
+          .select()
+          .from(invoiceLines)
+          .where(eq(invoiceLines.invoiceId, invoiceId))
+          .orderBy(invoiceLines.lineNumber);
+          
+        return {
+          invoice: updatedInvoice[0],
+          lineItems,
+        };
+      });
       
-      // Get updated invoice with line items
-      const updatedInvoice = await db
-        .select()
-        .from(invoices)
-        .where(eq(invoices.id, invoiceId))
-        .limit(1);
-      
-      const lineItems = await db
-        .select()
-        .from(invoiceLines)
-        .where(eq(invoiceLines.invoiceId, invoiceId))
-        .orderBy(invoiceLines.lineNumber);
+      const { invoice: updatedInvoice, lineItems } = result;
       
       return c.json({
         message: 'Invoice updated successfully',
-        invoice: updatedInvoice[0],
+        invoice: updatedInvoice,
         lineItems,
         timestamp: new Date().toISOString(),
       });
@@ -503,7 +551,7 @@ app.put('/:id',
 // Delete invoice (soft delete)
 app.delete('/:id', async (c) => {
   try {
-    const user = (c as any).get('user');
+    const user = getAuthenticatedUser(c);
     const env = c.env as Env;
     const db = createDatabaseFromEnv(env);
     const invoiceId = c.req.param('id');
@@ -547,14 +595,16 @@ app.delete('/:id', async (c) => {
       }, 400);
     }
     
-    // Soft delete by updating status
-    await db
-      .update(invoices)
-      .set({ 
-        status: 'cancelled',
-        updatedAt: new Date(),
-      })
-      .where(eq(invoices.id, invoiceId));
+    // Soft delete by updating status in a transaction
+    await db.transaction(async (tx) => {
+      await tx
+        .update(invoices)
+        .set({ 
+          status: 'cancelled',
+          updatedAt: new Date(),
+        })
+        .where(eq(invoices.id, invoiceId));
+    });
     
     return c.json({
       message: 'Invoice deleted successfully',
@@ -572,7 +622,7 @@ app.delete('/:id', async (c) => {
 // Validate invoice against Malaysian rules
 app.post('/:id/validate', async (c) => {
   try {
-    const user = (c as any).get('user');
+    const user = getAuthenticatedUser(c);
     const env = c.env as Env;
     const db = createDatabaseFromEnv(env);
     const invoiceId = c.req.param('id');
@@ -635,15 +685,17 @@ app.post('/:id/validate', async (c) => {
     
     const validationScore = calculateValidationScore(validationResults);
     
-    // Update validation score
-    await db
-      .update(invoices)
-      .set({ 
-        validationScore,
-        lastValidatedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(invoices.id, invoiceId));
+    // Update validation score in a transaction
+    await db.transaction(async (tx) => {
+      await tx
+        .update(invoices)
+        .set({ 
+          validationScore,
+          lastValidatedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(invoices.id, invoiceId));
+    });
     
     return c.json({
       validation: {

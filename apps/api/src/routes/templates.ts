@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { validateBody } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq, and, desc, count } from 'drizzle-orm';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
 import { generalRateLimit } from '../middleware/rate-limit';
 import { createDatabaseFromEnv } from '@einvoice/database';
 import { users, organizations, invoiceTemplates } from '@einvoice/database/schema';
@@ -134,8 +134,8 @@ app.post('/',
   validateBody(templateCreateSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const data = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const data = getValidatedBody(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -203,7 +203,7 @@ app.post('/',
 app.get('/',
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const query = templateQuerySchema.parse(Object.fromEntries(c.req.queries()));
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
@@ -293,7 +293,7 @@ app.get('/',
 app.get('/:id',
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const templateId = c.req.param('id');
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
@@ -348,9 +348,9 @@ app.put('/:id',
   validateBody(templateUpdateSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const templateId = c.req.param('id');
-      const data = (c as any).get('validatedBody');
+      const data = getValidatedBody(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -414,7 +414,7 @@ app.put('/:id',
 app.delete('/:id',
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const templateId = c.req.param('id');
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
@@ -472,7 +472,7 @@ app.delete('/:id',
 app.post('/:id/use',
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const templateId = c.req.param('id');
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
@@ -565,7 +565,7 @@ app.get('/presets/industry',
 app.get('/analytics/usage',
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 

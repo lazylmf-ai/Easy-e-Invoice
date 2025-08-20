@@ -10,6 +10,28 @@ export interface JWTPayload {
   exp: number;
 }
 
+// Enhanced context interface with proper typing
+export interface AuthenticatedContext extends Context {
+  get(key: 'user'): JWTPayload;
+  get(key: string): any;
+  env: Env;
+}
+
+// Type guard to check if context has authenticated user
+export function isAuthenticatedContext(c: Context): c is AuthenticatedContext {
+  const user = c.get('user');
+  return user && typeof user.userId === 'string' && typeof user.email === 'string';
+}
+
+// Utility function to safely get authenticated user
+export function getAuthenticatedUser(c: Context): JWTPayload {
+  const user = c.get('user');
+  if (!user || typeof user.userId !== 'string' || typeof user.email !== 'string') {
+    throw new Error('User not authenticated or invalid user data');
+  }
+  return user as JWTPayload;
+}
+
 export async function authMiddleware(c: Context, next: Next) {
   const authorization = c.req.header('Authorization');
   
@@ -60,7 +82,7 @@ export async function authMiddleware(c: Context, next: Next) {
       }, 401);
     }
     
-    c.set('user', payload as any);
+    c.set('user', payload);
     await next();
   } catch (error) {
     console.error('JWT verification failed:', error);
@@ -89,7 +111,7 @@ export async function optionalAuthMiddleware(c: Context, next: Next) {
       const payload = await authService.verifyToken(token);
       
       if (payload.type === 'auth' && payload.userId && payload.email && !authService.isTokenExpired(payload)) {
-        c.set('user', payload as any);
+        c.set('user', payload);
       }
     } catch (error) {
       // Silently fail for optional auth

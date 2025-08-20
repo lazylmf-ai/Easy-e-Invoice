@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from '@/providers/providers';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GlobalErrorBoundary } from '@/components/error/GlobalErrorBoundary';
 
 export const metadata: Metadata = {
   title: 'Easy e-Invoice',
@@ -20,9 +21,11 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className="h-full">
         <ErrorBoundary>
-          <Providers>
-            {children}
-          </Providers>
+          <GlobalErrorBoundary context={{ layout: 'root', page: 'global' }}>
+            <Providers>
+              {children}
+            </Providers>
+          </GlobalErrorBoundary>
         </ErrorBoundary>
       </body>
     </html>

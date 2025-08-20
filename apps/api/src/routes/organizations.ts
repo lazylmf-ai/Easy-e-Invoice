@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { authMiddleware } from '../middleware/auth';
-import { validateBody } from '../middleware/validation';
+import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
+import { validateBody, getValidatedBody } from '../middleware/validation';
 import { generalRateLimit } from '../middleware/rate-limit';
 import { validateTinFormat, searchIndustryCodes } from '@einvoice/validation';
 import { createDatabaseFromEnv } from '@einvoice/database';
@@ -56,7 +56,7 @@ const orgSetupSchema = z.object({
 // Get organization profile
 app.get('/', async (c) => {
   try {
-    const user = (c as any).get('user');
+    const user = getAuthenticatedUser(c);
     
     // TODO: Fetch organization from database
     // const db = createDatabase(c.env.DATABASE_URL);
@@ -91,8 +91,8 @@ app.put('/',
   validateBody(orgSetupSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const orgData = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const orgData = getValidatedBody(c);
       
       // TODO: Update organization in database
       // const db = createDatabase(c.env.DATABASE_URL);
@@ -124,8 +124,8 @@ app.post('/setup',
   validateBody(orgSetupSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const orgData = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const orgData = getValidatedBody(c);
       const env = c.env as Env;
       
       // Validate TIN format
@@ -213,7 +213,7 @@ app.post('/validate-tin',
   validateBody(z.object({ tin: z.string() })),
   async (c) => {
     try {
-      const { tin } = (c as any).get('validatedBody');
+      const { tin } = getValidatedBody<{ tin: string }>(c);
       
       // Use validation package to check TIN format
       const validation = validateTinFormat(tin);

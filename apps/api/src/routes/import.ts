@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { authMiddleware } from '../middleware/auth';
-import { validateBody } from '../middleware/validation';
+import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
+import { validateBody, getValidatedBody } from '../middleware/validation';
 import { generalRateLimit } from '../middleware/rate-limit';
 import { createDatabaseFromEnv } from '@einvoice/database';
 import { users, organizations, invoices, invoiceLines } from '@einvoice/database/schema';
@@ -185,7 +185,7 @@ app.post('/parse-csv',
   validateBody(z.object({ csvData: z.string() })),
   async (c) => {
     try {
-      const { csvData } = (c as any).get('validatedBody');
+      const { csvData } = getValidatedBody<{ csvData: string }>(c);
       
       // Parse CSV
       const rows = parseCSV(csvData);
@@ -257,10 +257,10 @@ app.post('/invoices',
   validateBody(importRequestSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
+      const user = getAuthenticatedUser(c);
       const env = c.env as Env;
       const db = createDatabaseFromEnv(env);
-      const data = (c as any).get('validatedBody');
+      const data = getValidatedBody(c);
       
       // Get user's organization
       const userData = await db
@@ -558,8 +558,8 @@ app.post('/start-chunked-import',
   validateBody(importRequestSchema),
   async (c) => {
     try {
-      const user = (c as any).get('user');
-      const data = (c as any).get('validatedBody');
+      const user = getAuthenticatedUser(c);
+      const data = getValidatedBody(c);
       
       // Parse CSV to get total row count
       const rows = parseCSV(data.csvData);

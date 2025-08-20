@@ -29,9 +29,32 @@ app.use('*', logger());
 app.use('*', prettyJSON());
 app.use('*', secureHeaders());
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'https://yourdomain.com'],
+  origin: (origin, c) => {
+    const allowedOrigins = [
+      'http://localhost:3000', 
+      'http://localhost:3001',
+      'https://easyeinvoice.com.my',
+      'https://www.easyeinvoice.com.my',
+      'https://staging.easyeinvoice.com.my'
+    ];
+    
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return true;
+    
+    return allowedOrigins.includes(origin);
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With',
+    'Accept',
+    'Origin',
+    'Cache-Control',
+    'X-File-Name'
+  ],
+  credentials: true,
+  maxAge: 86400, // 24 hours
 }));
 
 // Health check endpoint

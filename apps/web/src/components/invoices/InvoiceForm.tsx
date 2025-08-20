@@ -1,10 +1,53 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, TrashIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { ErrorBoundary, withErrorBoundary } from '@/components/error/ErrorBoundary';
+import { FinancialErrorBoundary } from '@/components/error/FinancialErrorBoundary';
+
+// Custom debounce implementation to avoid lodash dependency
+function debounce<T extends (...args: any[]) => void>(
+  func: T,
+  delay: number,
+  options: { leading?: boolean; trailing?: boolean } = { leading: false, trailing: true }
+): T & { cancel: () => void } {
+  let timeoutId: NodeJS.Timeout | null = null;
+  let lastCallTime = 0;
+  
+  const debounced = (...args: Parameters<T>) => {
+    const now = Date.now();
+    
+    const callNow = options.leading && (now - lastCallTime > delay);
+    
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    
+    if (callNow) {
+      lastCallTime = now;
+      func(...args);
+    } else if (options.trailing) {
+      timeoutId = setTimeout(() => {
+        lastCallTime = Date.now();
+        func(...args);
+        timeoutId = null;
+      }, delay);
+    }
+  };
+  
+  debounced.cancel = () => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+  };
+  
+  return debounced as T & { cancel: () => void };
+}
 import { 
   invoiceCreateSchema, 
   lineItemCreateSchema,
@@ -89,6 +132,10 @@ export default function InvoiceForm({
     totalSst: 0,
     grandTotal: 0,
   });
+  
+  const [isCalculating, setIsCalculating] = useState(false);
+  const calculationInProgress = useRef(false);
+  const calculationVersion = useRef(0);
 
   const {
     register,
@@ -133,66 +180,164 @@ export default function InvoiceForm({
 
   const watchedFields = watch();
 
-  // Calculate line totals and invoice totals using validation package functions
-  const calculateTotals = useCallback(() => {
-    if (!watchedFields.lineItems) return;
+  // Safe number parsing with fallback
+  const safeParseFloat = useCallback((value: string | number | undefined, fallback: number = 0): number => {
+    if (value === undefined || value === null || value === '') return fallback;
+    const parsed = parseFloat(String(value));
+    return isNaN(parsed) ? fallback : parsed;
+  }, []);
 
-    let subtotal = 0;
-    let totalSst = 0;
-    let totalDiscount = 0;
-
-    watchedFields.lineItems.forEach((item, index) => {
-      const quantity = parseFloat(item.quantity || '0');
-      const unitPrice = parseFloat(item.unitPrice || '0');
-      const discount = parseFloat(item.discountAmount || '0');
-      const sstRate = parseFloat(item.sstRate || '0');
-
-      // Use validation package calculation functions
-      const lineTotal = calculateLineTotal(quantity, unitPrice, discount);
-      const sstAmount = calculateSstAmount(lineTotal, sstRate);
-
-      // Update calculated fields in form
-      setValue(`lineItems.${index}.lineTotal`, lineTotal.toFixed(2));
-      setValue(`lineItems.${index}.sstAmount`, sstAmount.toFixed(2));
-
-      // Accumulate totals
-      subtotal += lineTotal;
-      totalSst += sstAmount;
-      totalDiscount += discount;
-    });
-
-    // Calculate grand total
-    const grandTotal = calculateGrandTotal(subtotal, 0, totalSst); // No additional discount at invoice level
+  // Calculate line totals and invoice totals with race condition protection
+  const calculateTotals = useCallback(async () => {
+    if (!watchedFields.lineItems || calculationInProgress.current) return;
     
-    // Update invoice totals in form
-    setValue('invoice.subtotal', subtotal.toFixed(2));
-    setValue('invoice.sstAmount', totalSst.toFixed(2));
-    setValue('invoice.totalDiscount', totalDiscount.toFixed(2));
-    setValue('invoice.grandTotal', grandTotal.toFixed(2));
+    // Prevent concurrent calculations
+    calculationInProgress.current = true;
+    setIsCalculating(true);
+    
+    // Get current calculation version
+    const currentVersion = ++calculationVersion.current;
+    
+    try {
+      // Validate all line items have required fields
+      const validLineItems = watchedFields.lineItems.filter(item => 
+        item.quantity && item.unitPrice && item.itemDescription
+      );
+      
+      if (validLineItems.length === 0) {
+        setTotals({ subtotal: 0, totalDiscount: 0, totalSst: 0, grandTotal: 0 });
+        return;
+      }
 
-    setTotals({
-      subtotal,
-      totalDiscount,
-      totalSst,
-      grandTotal,
-    });
-  }, [watchedFields.lineItems, setValue]);
+      let subtotal = 0;
+      let totalSst = 0;
+      let totalDiscount = 0;
+      const updatedLineItems: Array<{ index: number; sstAmount: string; lineTotal: string }> = [];
 
-  // Recalculate totals when line items change
+      // Process line items sequentially to avoid race conditions
+      for (let index = 0; index < watchedFields.lineItems.length; index++) {
+        const item = watchedFields.lineItems[index];
+        
+        // Check if calculation was superseded
+        if (calculationVersion.current !== currentVersion) {
+          return; // Abort this calculation
+        }
+        
+        const quantity = safeParseFloat(item.quantity);
+        const unitPrice = safeParseFloat(item.unitPrice);
+        const discount = safeParseFloat(item.discountAmount);
+        const sstRate = safeParseFloat(item.sstRate);
+
+        // Skip invalid line items
+        if (quantity <= 0 || unitPrice < 0) continue;
+
+        try {
+          // Use validation package calculation functions with proper error handling
+          const lineTotal = parseFloat(calculateLineTotal(
+            quantity.toString(), 
+            unitPrice.toString(), 
+            discount.toString()
+          ));
+          
+          const sstAmount = parseFloat(calculateSstAmount(lineTotal.toFixed(2), sstRate));
+
+          // Validate calculation results
+          if (isNaN(lineTotal) || isNaN(sstAmount) || lineTotal < 0 || sstAmount < 0) {
+            console.warn(`Invalid calculation for line item ${index}:`, { lineTotal, sstAmount });
+            continue;
+          }
+
+          // Store updates for batch application
+          updatedLineItems.push({
+            index,
+            sstAmount: sstAmount.toFixed(2),
+            lineTotal: lineTotal.toFixed(2)
+          });
+
+          // Accumulate totals
+          subtotal += lineTotal;
+          totalSst += sstAmount;
+          totalDiscount += discount;
+        } catch (error) {
+          console.error(`Calculation error for line item ${index}:`, error);
+          continue;
+        }
+      }
+
+      // Final validation check before applying updates
+      if (calculationVersion.current !== currentVersion) {
+        return; // Abort if superseded
+      }
+
+      // Apply all form updates in a single batch to prevent race conditions
+      updatedLineItems.forEach(({ index, sstAmount, lineTotal }) => {
+        setValue(`lineItems.${index}.sstAmount`, sstAmount, { shouldDirty: false });
+        setValue(`lineItems.${index}.lineTotal`, lineTotal, { shouldDirty: false });
+      });
+
+      // Calculate grand total with proper precision handling
+      const grandTotal = subtotal - totalDiscount + totalSst;
+      
+      // Round to avoid floating-point precision issues
+      const finalTotals = {
+        subtotal: Math.round(subtotal * 100) / 100,
+        totalDiscount: Math.round(totalDiscount * 100) / 100,
+        totalSst: Math.round(totalSst * 100) / 100,
+        grandTotal: Math.round(grandTotal * 100) / 100,
+      };
+
+      // Final check before setting state
+      if (calculationVersion.current === currentVersion) {
+        setTotals(finalTotals);
+      }
+    } catch (error) {
+      console.error('Error in calculateTotals:', error);
+      // Reset to safe state on error
+      setTotals({ subtotal: 0, totalDiscount: 0, totalSst: 0, grandTotal: 0 });
+    } finally {
+      calculationInProgress.current = false;
+      setIsCalculating(false);
+    }
+  }, [watchedFields.lineItems, setValue, safeParseFloat]);
+
+  // Debounced calculation to prevent excessive recalculations
+  const debouncedCalculateTotals = useMemo(
+    () => debounce(calculateTotals, 300, { leading: false, trailing: true }),
+    [calculateTotals]
+  );
+
+  // Recalculate totals when line items change (debounced)
   useEffect(() => {
-    calculateTotals();
-  }, [calculateTotals]);
+    debouncedCalculateTotals();
+    
+    // Cleanup debounced function
+    return () => {
+      debouncedCalculateTotals.cancel();
+    };
+  }, [debouncedCalculateTotals]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      debouncedCalculateTotals.cancel();
+      calculationInProgress.current = false;
+    };
+  }, [debouncedCalculateTotals]);
 
   const addLineItem = () => {
-    append({
-      itemDescription: '',
-      quantity: '1',
-      unitPrice: '0.00',
-      discountAmount: '0.00',
-      lineTotal: '0.00',
-      sstRate: '0.00',
-      sstAmount: '0.00',
-    });
+    try {
+      append({
+        itemDescription: '',
+        quantity: '1',
+        unitPrice: '0.00',
+        discountAmount: '0.00',
+        sstRate: 0,
+        sstAmount: '0.00',
+      });
+    } catch (error) {
+      console.error('Failed to add line item:', error);
+      throw new Error('Failed to add new line item');
+    }
   };
 
   const removeLineItem = (index: number) => {
@@ -202,19 +347,63 @@ export default function InvoiceForm({
   };
 
   const handleFormSubmit = (data: FormData) => {
-    onSubmit(data);
+    try {
+      // Validate critical data before submission
+      if (!data.invoice?.invoiceNumber) {
+        throw new Error('Invoice number is required');
+      }
+      if (!data.lineItems || data.lineItems.length === 0) {
+        throw new Error('At least one line item is required');
+      }
+      
+      // Check for Malaysian e-Invoice compliance
+      if (data.invoice.currency !== 'MYR' && !data.invoice.exchangeRate) {
+        throw new Error('Exchange rate is required for non-MYR currencies');
+      }
+      
+      onSubmit(data);
+    } catch (error) {
+      console.error('Form submission validation failed:', error);
+      throw error; // Re-throw to be caught by error boundary
+    }
   };
 
   const handleValidate = () => {
-    if (onValidate && isValid) {
-      onValidate(watchedFields as FormData);
+    try {
+      if (onValidate && isValid) {
+        // Pre-validation checks for Malaysian compliance
+        const formData = watchedFields as FormData;
+        
+        // Check TIN format for B2B transactions
+        if (formData.invoice?.buyerTin) {
+          const tinRegex = /^(C\d{10}|\d{12})$/;
+          if (!tinRegex.test(formData.invoice.buyerTin)) {
+            throw new Error('Invalid Malaysian TIN format. Use C1234567890 or 123456789012');
+          }
+        }
+        
+        // Validate SST calculations
+        const hasInvalidSST = formData.lineItems?.some(item => {
+          const sstRate = parseFloat(String(item.sstRate || '0'));
+          return sstRate < 0 || sstRate > 10;
+        });
+        
+        if (hasInvalidSST) {
+          throw new Error('Invalid SST rate. Malaysian SST rate should be 0%, 6%, or 10%');
+        }
+        
+        onValidate(formData);
+      }
+    } catch (error) {
+      console.error('Validation failed:', error);
+      throw error; // Re-throw to be caught by error boundary
     }
   };
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-8">
       {/* Buyer Information */}
-      {!watchedFields.invoice?.isConsolidated && (
+      {(
         <div className="bg-white shadow-sm rounded-lg p-6">
           <h3 className="text-lg font-medium text-gray-900 mb-6">Buyer Information</h3>
           
@@ -583,52 +772,77 @@ export default function InvoiceForm({
               </div>
 
               {/* Calculated totals for this line */}
-              <div className="mt-4 bg-gray-50 p-3 rounded-md">
+              <FinancialErrorBoundary>
+                <div className="mt-4 bg-gray-50 p-3 rounded-md">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-gray-600">Line Total: </span>
-                    <span className="font-medium">
-                      {watchedFields.lineItems?.[index]?.lineTotal || '0.00'}
+                    <span className={`font-medium ${isCalculating ? 'text-gray-400' : ''}`}>
+                      {isCalculating ? 'Calculating...' : 
+                       `RM ${watchedFields.lineItems?.[index]?.lineTotal || '0.00'}`}
                     </span>
                   </div>
                   <div>
                     <span className="text-gray-600">SST Amount: </span>
-                    <span className="font-medium">
-                      {watchedFields.lineItems?.[index]?.sstAmount || '0.00'}
+                    <span className={`font-medium ${isCalculating ? 'text-gray-400' : ''}`}>
+                      {isCalculating ? 'Calculating...' : 
+                       `RM ${watchedFields.lineItems?.[index]?.sstAmount || '0.00'}`}
                     </span>
                   </div>
                 </div>
-              </div>
+                </div>
+              </FinancialErrorBoundary>
             </div>
           ))}
         </div>
       </div>
 
       {/* Invoice Totals */}
-      <div className="bg-white shadow-sm rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-6">Invoice Totals</h3>
+      <FinancialErrorBoundary>
+        <div className="bg-white shadow-sm rounded-lg p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-6">Invoice Totals</h3>
         
         <div className="space-y-3">
           <div className="flex justify-between">
             <span className="text-gray-600">Subtotal:</span>
-            <span className="font-medium">RM {totals.subtotal.toFixed(2)}</span>
+            <span className={`font-medium ${isCalculating ? 'text-gray-400' : ''}`}>
+              {isCalculating ? 'Calculating...' : `RM ${totals.subtotal.toFixed(2)}`}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Total Discount:</span>
-            <span className="font-medium">RM {totals.totalDiscount.toFixed(2)}</span>
+            <span className={`font-medium ${isCalculating ? 'text-gray-400' : ''}`}>
+              {isCalculating ? 'Calculating...' : `RM ${totals.totalDiscount.toFixed(2)}`}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">SST (6%):</span>
-            <span className="font-medium">RM {totals.totalSst.toFixed(2)}</span>
+            <span className={`font-medium ${isCalculating ? 'text-gray-400' : ''}`}>
+              {isCalculating ? 'Calculating...' : `RM ${totals.totalSst.toFixed(2)}`}
+            </span>
           </div>
           <div className="border-t pt-3">
             <div className="flex justify-between text-lg font-semibold">
               <span>Grand Total:</span>
-              <span>RM {totals.grandTotal.toFixed(2)}</span>
+              <span className={`${isCalculating ? 'text-gray-400' : ''}`}>
+                {isCalculating ? 'Calculating...' : `RM ${totals.grandTotal.toFixed(2)}`}
+              </span>
             </div>
           </div>
+          {isCalculating && (
+            <div className="text-xs text-gray-500 text-center mt-2">
+              <div className="inline-flex items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Updating calculations...
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+        </div>
+      </FinancialErrorBoundary>
 
       {/* Notes */}
       <div className="bg-white shadow-sm rounded-lg p-6">

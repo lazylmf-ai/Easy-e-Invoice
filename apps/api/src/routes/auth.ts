@@ -1,9 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { validateBody } from '../middleware/validation';
+import { validateBody, getValidatedBody } from '../middleware/validation';
 import { authRateLimit } from '../middleware/rate-limit';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
 import { AuthService } from '../services/auth-service';
 import { createDatabaseFromEnv } from '@einvoice/database';
 import { users } from '@einvoice/database/schema';
@@ -26,7 +26,7 @@ app.post('/magic-link',
   validateBody(magicLinkSchema),
   async (c) => {
     try {
-      const { email } = (c as any).get('validatedBody');
+      const { email } = getValidatedBody<{ email: string }>(c);
       const env = c.env as Env;
       
       // Initialize auth service
@@ -68,7 +68,7 @@ app.post('/verify',
   validateBody(verifyTokenSchema),
   async (c) => {
     try {
-      const { token } = (c as any).get('validatedBody');
+      const { token } = getValidatedBody<{ token: string }>(c);
       const env = c.env as Env;
       
       // Initialize auth service and database
@@ -164,7 +164,7 @@ app.post('/verify',
 // Get current user info
 app.get('/me', authMiddleware, async (c) => {
   try {
-    const user = (c as any).get('user');
+    const user = getAuthenticatedUser(c);
     
     if (!user) {
       return c.json({
