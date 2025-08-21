@@ -1,0 +1,60 @@
+name: AI Code Scan
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+  security-events: write   # needed to upload SARIF to Code scanning
+  actions: read
+  pull-requests: write
+
+jobs:
+  # --- CodeQL (deep static analysis) ---
+  codeql:
+    if: ${{ github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          # Adjust to your repo's languages or leave blank to let default-setup handle it
+          languages: javascript,python,java,go
+      - uses: github/codeql-action/analyze@v3
+  # Docs: https://docs.github.com/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql
+
+  # --- Semgrep (lightweight bug patterns) ---
+  semgrep:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Install Semgrep
+        run: pip install --upgrade semgrep
+      - name: Run Semgrep (no account) and emit SARIF
+        run: semgrep --config p/ci --error --sarif --output semgrep.sarif || true
+      - name: Upload Semgrep results to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with: { sarif_file: semgrep.sarif }
+  # CI setup & “p/ci” ruleset: https://semgrep.dev/docs/deployment/add-semgrep-to-ci
+  # Note: the legacy marketplace wrapper is deprecated—use CLI as above. :contentReference[oaicite:2]{index=2}
+
+  # --- Gitleaks (secrets scanning) ---
+  gitleaks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gitleaks/gitleaks-action@v2
+  # Official action & docs. :contentReference[oaicite:3]{index=3}
+
+  # --- OSV dependency vulnerabilities ---
+  osv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google/osv-scanner-action@v1
+        with:
+          scan-args: --recursive .
+  # Action & install docs. :contentReference[oaicite:4]{index=4}
