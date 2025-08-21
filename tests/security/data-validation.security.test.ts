@@ -15,7 +15,7 @@ describe('Data Validation Security Tests', () => {
   // XSS Detection
   const detectXss = (input: string): boolean => {
     const xssPatterns = [
-      /<script[^>]*>.*?<\/script>/gi,
+      /<script[^>]*>.*?<\/script\b[^>]*>/gi,
       /<iframe[^>]*>.*?<\/iframe>/gi,
       /javascript:/gi,
       /on\w+\s*=/gi,
