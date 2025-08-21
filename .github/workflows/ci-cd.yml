@@ -119,9 +119,13 @@ jobs:
         run: |
           npm run test:performance
           npm run test:load
+          npm run test:performance:regression
         env:
           PERFORMANCE_THRESHOLD_API: '1000'  # 1s max
           PERFORMANCE_THRESHOLD_WEB: '3000'  # 3s max
+          CSV_IMPORT_THRESHOLD_MS: '50'      # 50ms max per row
+          PDF_GENERATION_THRESHOLD_MS: '20'  # 20ms max per PDF
+          MALAYSIAN_COMPLIANCE_SCORE_MIN: '95' # 95% minimum compliance score
 
       # Coverage and Quality Reports
       - name: Upload Coverage to Codecov
@@ -141,6 +145,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
+      # Performance Regression Analysis
+      - name: Performance Regression Check
+        if: matrix.test-type == 'performance'
+        run: |
+          # Save current performance results
+          npm run test:performance:regression -- --reporter=json > performance-current.json
+          
+          # Download baseline if available
+          if [ -f "performance-baseline.json" ]; then
+            npm run test:performance:compare
+          else
+            echo "No baseline found, creating new baseline"
+            cp performance-current.json performance-baseline.json
+          fi
+        env:
+          CSV_IMPORT_THRESHOLD_MS: '50'
+          PDF_GENERATION_THRESHOLD_MS: '20'
+          MALAYSIAN_COMPLIANCE_SCORE_MIN: '95'
+
       # Store Test Results
       - name: Store Test Results
         if: always()
@@ -151,6 +174,7 @@ jobs:
             coverage/
             test-results/
             playwright-report/
+            performance-*.json
           retention-days: 30
 
   # Build and Package

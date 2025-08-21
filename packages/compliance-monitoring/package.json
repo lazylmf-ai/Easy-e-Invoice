@@ -1,0 +1,26 @@
+{
+  "name": "@einvoice/compliance-monitoring",
+  "version": "1.0.0",
+  "description": "Malaysian e-Invoice compliance performance monitoring",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "malaysian",
+    "einvoice",
+    "compliance",
+    "monitoring",
+    "lhdn",
+    "myinvois",
+    "pdpa"
+  ],
+  "author": "Easy e-Invoice",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
