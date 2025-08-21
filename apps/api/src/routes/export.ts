@@ -3,6 +3,7 @@ import { validateBody } from '@hono/zod-validator';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
+import { getValidatedBody } from '../middleware/validation';
 import { generalRateLimit } from '../middleware/rate-limit';
 import { createDatabaseFromEnv } from '@einvoice/database';
 import { invoices, invoiceLines, organizations, users } from '@einvoice/database/schema';

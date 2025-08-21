@@ -135,7 +135,8 @@ app.post('/',
   async (c) => {
     try {
       const user = getAuthenticatedUser(c);
-      const data = getValidatedBody(c);
+ import { authMiddleware, getAuthenticatedUser } from '../middleware/auth';
+import { getValidatedBody } from '../middleware/validation';
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 

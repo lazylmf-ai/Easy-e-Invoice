@@ -2,13 +2,8 @@
 > @easy-einvoice/websocket@1.0.0 typecheck
 > tsc --noEmit
 
-error TS2688: Cannot find type definition file for 'jest'.
-  The file is in the program because:
-    Entry point of type library 'jest' specified in compilerOptions
-npm error Lifecycle script `typecheck` failed with error:
-npm error code 2
-npm error path /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/websocket
-npm error workspace @easy-einvoice/websocket@1.0.0
-npm error location /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/websocket
-npm error command failed
-npm error command sh -c tsc --noEmit
+src/progress-tracker.ts(231,9): error TS2416: Property 'trackFileProcessing' in type 'JobProgressTracker' is not assignable to the same property in base type 'ProgressTracker'.
+  Type '(fileKey: string, jobId: string, status: "start" | "complete", result?: { recordsProcessed: number; successfulRecords: number; failedRecords: number; outputFiles: string[]; } | undefined, error?: string | undefined) => Promise<...>' is not assignable to type '(fileKey: string, jobId: string) => Promise<void>'.
+    Target signature provides too few arguments. Expected 3 or more, but got 2.
+src/server.ts(316,37): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.

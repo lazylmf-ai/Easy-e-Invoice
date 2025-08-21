@@ -324,7 +324,7 @@ jobs:
       - name: Production Deployment Gate
         uses: trstringer/manual-approval@v1
         with:
-          secret: ${{ github.TOKEN }}
+          secret: ${{ secrets.GITHUB_TOKEN }}
           approvers: lazylmf
           minimum-approvals: 1
           issue-title: "🚀 Production Deployment Approval Required"
@@ -342,7 +342,6 @@ jobs:
             - Branch: ${{ github.ref }}
             
             Please review and approve this production deployment.
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -449,6 +448,7 @@ jobs:
           echo "Malaysian business hours notification sent."
         env:
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
 
   # Rollback Trigger (Manual)
   rollback:

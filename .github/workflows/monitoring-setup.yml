@@ -264,17 +264,31 @@ jobs:
         run: |
           echo "✅ Verifying complete monitoring setup..."
           
-          # Check all monitoring services
-          npm run monitoring:verify-all
+          echo "✅ Verifying complete monitoring setup..."
+         # Fail fast on errors and unset vars
+         set -euo pipefail
+
+          # Check all monitoring services with retry logic
+          for i in {1..3}; do
+            if timeout 5m npm run monitoring:verify-all; then
+              break
+            elif [ $i -eq 3 ]; then
+              echo "❌ Monitoring verification failed after 3 attempts"
+              exit 1
+            else
+              echo "⏳ Retry attempt $i, waiting 30s..."
+              sleep 30
+            fi
+          done
           
           # Test Malaysian business hours functionality
-          npm run monitoring:test-malaysian-features
+          npm run monitoring:test-malaysian-features || exit 1
           
           # Verify compliance monitoring
-          npm run monitoring:verify-compliance-tracking
+          npm run monitoring:verify-compliance-tracking || exit 1
           
           # Test alert routing
-          npm run alerts:verify-routing
+          npm run alerts:verify-routing || exit 1
           
           echo "🎉 Monitoring setup complete for Malaysian e-Invoice system!"
 

@@ -2,3 +2,50 @@
 > @easy-einvoice/notifications@1.0.0 typecheck
 > tsc --noEmit
 
+src/index.ts(60,7): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(61,7): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(64,7): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(65,7): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(110,11): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(111,15): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(142,23): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(142,70): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(143,27): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(143,57): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(176,10): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(177,13): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(178,11): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(179,15): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(184,11): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(217,11): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(218,15): error TS1361: 'NotificationPriority' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(330,10): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(331,10): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(334,10): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/index.ts(335,10): error TS1361: 'NotificationType' cannot be used as a value because it was imported using 'import type'.
+src/service.ts(79,52): error TS2379: Argument of type '{ from: string; to: string[]; subject: string; html: string; text: string; attachments: { filename: string; content: string; contentType: string; }[] | undefined; headers: { 'X-Notification-ID': string; 'X-Notification-Type': NotificationType; 'X-Organization-ID': string; }; }' is not assignable to parameter of type 'CreateEmailOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Type '{ from: string; to: string[]; subject: string; html: string; text: string; attachments: { filename: string; content: string; contentType: string; }[] | undefined; headers: { 'X-Notification-ID': string; 'X-Notification-Type': NotificationType; 'X-Organization-ID': string; }; }' is not assignable to type 'Required<Pick<EmailRenderOptions, "text">> & Partial<Pick<EmailRenderOptions, "react" | "html">> & CreateEmailBaseOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Type '{ from: string; to: string[]; subject: string; html: string; text: string; attachments: { filename: string; content: string; contentType: string; }[] | undefined; headers: { 'X-Notification-ID': string; 'X-Notification-Type': NotificationType; 'X-Organization-ID': string; }; }' is not assignable to type 'CreateEmailBaseOptions' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+      Types of property 'attachments' are incompatible.
+        Type '{ filename: string; content: string; contentType: string; }[] | undefined' is not assignable to type 'Attachment[]'.
+          Type 'undefined' is not assignable to type 'Attachment[]'.
+src/service.ts(103,7): error TS2375: Type '{ id: string; success: true; messageId: string | undefined; deliveryChannel: string; timestamp: Date; }' is not assignable to type 'NotificationResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'messageId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/service.ts(420,11): error TS2375: Type '{ id: string; status: "failed" | "sent"; sentAt: Date | undefined; failureReason: string | undefined; deliveryChannel: string; }' is not assignable to type 'NotificationStatus' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'sentAt' are incompatible.
+    Type 'Date | undefined' is not assignable to type 'Date'.
+      Type 'undefined' is not assignable to type 'Date'.
+src/templates.ts(9,3): error TS2739: Type '{ en: { templateId: string; language: Language.ENGLISH; subject: string; htmlContent: string; textContent: string; }; ms: { templateId: string; language: Language.MALAY; subject: string; htmlContent: string; textContent: string; }; }' is missing the following properties from type 'Record<Language, { templateId: string; language: Language; subject: string; htmlContent: string; textContent?: string | undefined; variables?: Record<string, string> | undefined; }>': zh, ta
+src/templates.ts(205,3): error TS2739: Type '{ en: { templateId: string; language: Language.ENGLISH; subject: string; htmlContent: string; }; }' is missing the following properties from type 'Record<Language, { templateId: string; language: Language; subject: string; htmlContent: string; textContent?: string | undefined; variables?: Record<string, string> | undefined; }>': ms, zh, ta
+src/templates.ts(262,3): error TS2739: Type '{ en: { templateId: string; language: Language.ENGLISH; subject: string; htmlContent: string; }; }' is missing the following properties from type 'Record<Language, { templateId: string; language: Language; subject: string; htmlContent: string; textContent?: string | undefined; variables?: Record<string, string> | undefined; }>': ms, zh, ta
+src/templates.ts(310,3): error TS2739: Type '{ en: { templateId: string; language: Language.ENGLISH; subject: string; htmlContent: string; }; }' is missing the following properties from type 'Record<Language, { templateId: string; language: Language; subject: string; htmlContent: string; textContent?: string | undefined; variables?: Record<string, string> | undefined; }>': ms, zh, ta
+src/templates.ts(368,3): error TS2739: Type '{ en: { templateId: string; language: Language.ENGLISH; subject: string; htmlContent: string; textContent: string; }; }' is missing the following properties from type 'Record<Language, { templateId: string; language: Language; subject: string; htmlContent: string; textContent?: string | undefined; variables?: Record<string, string> | undefined; }>': ms, zh, ta
+npm error Lifecycle script `typecheck` failed with error:
+npm error code 2
+npm error path /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/notifications
+npm error workspace @easy-einvoice/notifications@1.0.0
+npm error location /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/notifications
+npm error command failed
+npm error command sh -c tsc --noEmit

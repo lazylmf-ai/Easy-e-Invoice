@@ -1,15 +1,15 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
   "/auth/login/page": "app/auth/login/page.js",
-  "/auth/verify/page": "app/auth/verify/page.js",
-  "/invoices/export/page": "app/invoices/export/page.js",
-  "/invoices/[id]/page": "app/invoices/[id]/page.js",
-  "/invoices/page": "app/invoices/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
   "/invoices/create/page": "app/invoices/create/page.js",
-  "/org/setup/page": "app/org/setup/page.js",
-  "/page": "app/page.js",
+  "/invoices/[id]/page": "app/invoices/[id]/page.js",
+  "/invoices/import/page": "app/invoices/import/page.js",
+  "/auth/verify/page": "app/auth/verify/page.js",
+  "/invoices/page": "app/invoices/page.js",
+  "/invoices/export/page": "app/invoices/export/page.js",
   "/templates/create/page": "app/templates/create/page.js",
   "/templates/page": "app/templates/page.js",
-  "/invoices/import/page": "app/invoices/import/page.js",
-  "/dashboard/page": "app/dashboard/page.js"
+  "/org/setup/page": "app/org/setup/page.js",
+  "/page": "app/page.js"
 }

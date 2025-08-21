@@ -88,14 +88,22 @@ jobs:
           
           # Check for breaking database changes
           echo "🗄️ Checking for database migration conflicts..."
-          if npm run db:check-rollback-safety -- --target="${{ steps.target.outputs.version }}"; then
+          if npm run db:check-rollback-safety -- --target="${{ steps.target.outputs.version }}" --strict; then
             echo "✅ Database rollback is safe"
           else
             echo "⚠️ Database rollback may cause data loss"
-            if [ "${{ github.event.inputs.rollback_type }}" = "immediate" ]; then
+            # Always fail for unsafe database rollbacks unless explicitly overridden
+            if [ "${{ github.event.inputs.rollback_type }}" = "immediate" ] || [ -z "$OVERRIDE_DB_SAFETY" ]; then
               echo "safe=false" >> $GITHUB_OUTPUT
+              echo "❌ Database rollback blocked due to safety concerns"
               exit 1
             fi
+            echo "⚠️ Proceeding with potentially unsafe database rollback"
+          fi
+          
+          # Additional safety check: verify target version was previously deployed
+          if ! git tag --contains "${{ steps.target.outputs.version }}" | grep -E '^(v|release-)'; then
+            echo "⚠️ Target version was not previously tagged as a release"
           fi
           
           echo "safe=true" >> $GITHUB_OUTPUT
@@ -181,10 +189,16 @@ jobs:
         if: contains(github.event.inputs.rollback_type, 'database') || github.event.inputs.rollback_type == 'immediate'
         run: |
           echo "🗄️ Rolling back database to target version..."
+          
+          # Verify backup exists before rollback
+          if ! npm run db:verify-backup-exists; then
+            echo "❌ No recent backup found - aborting database rollback"
+            exit 1
+          fi
+          
           npm run db:rollback -- --target="${{ needs.rollback-validation.outputs.target-version }}"
         env:
           DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
-
       # API Rollback
       - name: API Rollback
         if: contains(github.event.inputs.rollback_type, 'api') || github.event.inputs.rollback_type == 'immediate'

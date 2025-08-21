@@ -1,4 +1,4 @@
 
-> @einvoice/web@1.0.0 typecheck
+> easy-e-invoice-web@1.0.0 typecheck
 > tsc --noEmit
 

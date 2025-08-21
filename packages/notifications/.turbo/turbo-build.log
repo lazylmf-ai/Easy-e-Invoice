@@ -1,0 +1,14 @@
+
+> @easy-einvoice/notifications@1.0.0 build
+> tsc
+
+error TS2688: Cannot find type definition file for 'jest'.
+  The file is in the program because:
+    Entry point of type library 'jest' specified in compilerOptions
+npm error Lifecycle script `build` failed with error:
+npm error code 2
+npm error path /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/notifications
+npm error workspace @easy-einvoice/notifications@1.0.0
+npm error location /Users/lazylmf/StudioProjects/Easy-e-Invoice/packages/notifications
+npm error command failed
+npm error command sh -c tsc
