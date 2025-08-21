@@ -42,7 +42,7 @@ jobs:
           npm audit --audit-level=low --json > audit-results.json || true
           
       - name: Upload audit results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: vulnerability-scan-results
           path: audit-results.json
@@ -96,7 +96,7 @@ jobs:
           license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC;Unlicense' --json > license-report.json || true
 
       - name: Upload license report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: license-compliance-report
           path: license-report.json
@@ -126,7 +126,7 @@ jobs:
             --suppression owasp-suppressions.xml
 
       - name: Upload OWASP scan results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: owasp-dependency-scan
           path: dependency-check-reports/
@@ -293,7 +293,7 @@ jobs:
           echo "Report generated at: $(date)" >> security-report.md
 
       - name: Upload security report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: daily-security-report
           path: security-report.md

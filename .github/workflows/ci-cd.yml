@@ -144,7 +144,7 @@ jobs:
       # Store Test Results
       - name: Store Test Results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results-${{ matrix.test-type }}
           path: |
@@ -198,7 +198,7 @@ jobs:
           npm run analyze:deps
 
       - name: Store Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifacts
           path: |
