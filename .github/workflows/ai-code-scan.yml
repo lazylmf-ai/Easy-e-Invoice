@@ -1,4 +1,4 @@
-name: AI Code Scan
+name: AI Code Scan (TS/JS/HTML/Shell/CSS)
 on:
   pull_request:
   push:
@@ -6,50 +6,76 @@ on:
 
 permissions:
   contents: read
-  security-events: write   # needed to upload SARIF to Code scanning
-  actions: read
+  security-events: write
   pull-requests: write
+  actions: read
 
 jobs:
-  # --- CodeQL (deep static analysis) ---
+  # Deep security queries (JS/TS) + Copilot Autofix
   codeql:
-    if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v3
         with:
-          # Adjust to your repo's languages or leave blank to let default-setup handle it
-          languages: javascript,python,java,go
+          # JS/TS both covered; either id works
+          languages: javascript-typescript
       - uses: github/codeql-action/analyze@v3
-  # Docs: https://docs.github.com/code-security/code-scanning/introduction-to-code-scanning/about-code-scanning-with-codeql
+  # (CodeQL supports JavaScript/TypeScript and shows alerts in Code scanning.) 
 
-  # --- Semgrep (lightweight bug patterns) ---
+  # TypeScript type-check + ESLint → SARIF (enables Copilot Autofix for ESLint)
+  ts_js_quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node (w/ cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Install project deps; also bring in tools if not in your devDeps (no-save avoids lockfile edits)
+      - name: Install deps + quality toolchain
+        run: |
+          npm install
+          npm install --no-save eslint @eslint/js typescript typescript-eslint @microsoft/eslint-formatter-sarif
+
+      - name: TypeScript type-check
+        run: npx tsc --noEmit
+
+      - name: ESLint (SARIF)
+        run: npx eslint . -f @microsoft/eslint-formatter-sarif -o eslint.sarif || true
+
+      - name: Upload ESLint SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: eslint.sarif
+          wait-for-processing: true
+
+  # Semgrep bug/security rules → SARIF
   semgrep:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.11' }
       - name: Install Semgrep
-        run: pip install --upgrade semgrep
-      - name: Run Semgrep (no account) and emit SARIF
+        run: pipx install semgrep
+      - name: Semgrep (p/ci ruleset)
         run: semgrep --config p/ci --error --sarif --output semgrep.sarif || true
-      - name: Upload Semgrep results to GitHub Code Scanning
+      - name: Upload Semgrep SARIF
         uses: github/codeql-action/upload-sarif@v3
-        with: { sarif_file: semgrep.sarif }
-  # CI setup & “p/ci” ruleset: https://semgrep.dev/docs/deployment/add-semgrep-to-ci
-  # Note: the legacy marketplace wrapper is deprecated—use CLI as above. :contentReference[oaicite:2]{index=2}
+        with:
+          sarif_file: semgrep.sarif
+          wait-for-processing: true
 
-  # --- Gitleaks (secrets scanning) ---
+  # Secrets in history / new PRs
   gitleaks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: gitleaks/gitleaks-action@v2
-  # Official action & docs. :contentReference[oaicite:3]{index=3}
 
-  # --- OSV dependency vulnerabilities ---
+  # Dependency vulnerabilities (npm, etc.)
   osv:
     runs-on: ubuntu-latest
     steps:
@@ -57,4 +83,20 @@ jobs:
       - uses: google/osv-scanner-action@v1
         with:
           scan-args: --recursive .
-  # Action & install docs. :contentReference[oaicite:4]{index=4}
+
+  # HTML/CSS/Shell hygiene
+  html_css_shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20', cache: 'npm' }
+      - name: Install linters
+        run: |
+          npm install --no-save htmlhint stylelint stylelint-config-standard
+      - name: HTMLHint
+        run: npx htmlhint "**/*.html"
+      - name: Stylelint
+        run: npx stylelint "**/*.css"
+      - name: ShellCheck
+        uses: ludeeus/action-shellcheck@master
