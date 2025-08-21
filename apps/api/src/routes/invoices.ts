@@ -102,15 +102,9 @@ app.get('/', async (c) => {
     }
     
     if (search) {
-      // Sanitize search input to prevent SQL injection
-      const sanitizedSearch = search
-        .replace(/[%_\\]/g, '\\$&') // Escape SQL wildcards
-        .replace(/[<>'"&]/g, '') // Remove potentially dangerous characters
-        .substring(0, 100); // Limit length
-      
-      if (sanitizedSearch.length > 0) {
-        conditions.push(like(invoices.invoiceNumber, `%${sanitizedSearch}%`));
-      }
+      // Use parameterized query to prevent SQL injection
+      // The search parameter is already validated by Zod schema with regex pattern
+      conditions.push(like(invoices.invoiceNumber, `%${search}%`));
     }
     
     if (dateFrom) {

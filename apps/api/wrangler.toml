@@ -39,6 +39,52 @@ PAGINATION_MAX_LIMIT = "100"
 ENABLE_ANALYTICS = "true"
 ENABLE_MONITORING = "true"
 
+# Production Green Environment Configuration (for Blue-Green Deployment)
+[env.production-green]
+name = "easy-e-invoice-api-prod-green"
+usage_model = "standard"
+
+[env.production-green.vars]
+ENVIRONMENT = "production"
+API_VERSION = "v1"
+LOG_LEVEL = "info"
+CORS_ORIGINS = "https://easyeinvoice.com.my,https://www.easyeinvoice.com.my"
+RATE_LIMIT_REQUESTS = "100"
+RATE_LIMIT_WINDOW = "900"
+JWT_EXPIRY = "86400"
+MAGIC_LINK_EXPIRY = "900"
+FILE_UPLOAD_MAX_SIZE = "52428800"
+PAGINATION_DEFAULT_LIMIT = "20"
+PAGINATION_MAX_LIMIT = "100"
+ENABLE_ANALYTICS = "true"
+ENABLE_MONITORING = "true"
+
+# Same KV namespaces as production (shared)
+[[env.production-green.kv_namespaces]]
+binding = "CACHE"
+id = "765e2a2b8f484107b1aa1d496d864656"
+
+[[env.production-green.kv_namespaces]]
+binding = "SESSIONS"
+id = "ea977be93eaf43a7b6ad4821ab9472ec"
+
+[[env.production-green.kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "ed9d94eb872742a9b4b38a4ffaf922a8"
+
+# Same R2 buckets as production (shared)
+[[env.production-green.r2_buckets]]
+binding = "FILE_STORAGE"
+bucket_name = "easy-einvoice-files-prod"
+
+[[env.production-green.r2_buckets]]
+binding = "BACKUP_STORAGE"
+bucket_name = "easy-einvoice-backups-prod"
+
+# Analytics Engine for Production Green
+[[env.production-green.analytics_engine_datasets]]
+binding = "API_ANALYTICS"
+
 # Staging Environment Configuration
 [env.staging]
 name = "easy-e-invoice-api-staging"

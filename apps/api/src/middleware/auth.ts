@@ -85,7 +85,14 @@ export async function authMiddleware(c: Context, next: Next) {
     c.set('user', payload);
     await next();
   } catch (error) {
-    console.error('JWT verification failed:', error);
+    // Log authentication failure without sensitive details
+    console.error('Authentication failed', {
+      timestamp: new Date().toISOString(),
+      errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+      hasToken: !!token,
+      tokenLength: token?.length || 0
+    });
+    
     return c.json({
       error: 'Invalid Token',
       message: 'Token verification failed',
@@ -114,8 +121,12 @@ export async function optionalAuthMiddleware(c: Context, next: Next) {
         c.set('user', payload);
       }
     } catch (error) {
-      // Silently fail for optional auth
-      console.log('Optional auth failed:', error);
+      // Log optional auth failure without sensitive details
+      console.log('Optional authentication failed', {
+        timestamp: new Date().toISOString(),
+        hasToken: !!token,
+        tokenLength: token?.length || 0
+      });
     }
   }
   

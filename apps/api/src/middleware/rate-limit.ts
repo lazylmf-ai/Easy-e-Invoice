@@ -62,8 +62,18 @@ export function createRateLimiter(options: RateLimitOptions) {
         c.res.headers.set('X-RateLimit-Reset', Math.ceil((windowStart + windowMs) / 1000).toString());
         
       } else {
-        // Fallback: In-memory rate limiting (not suitable for production scaling)
-        console.warn('KV namespace not available, using memory-based rate limiting');
+        // Production safety: Require KV namespace for production deployments
+        const environment = c.env?.ENVIRONMENT || 'development';
+        if (environment === 'production') {
+          console.error('CRITICAL: KV namespace required for production rate limiting');
+          return c.json({
+            error: 'Service Configuration Error',
+            message: 'Rate limiting service not properly configured'
+          }, 503);
+        }
+        
+        // Fallback: In-memory rate limiting (development only)
+        console.warn('KV namespace not available, using memory-based rate limiting (development only)');
         
         // Simple in-memory tracking (limited to single worker instance)
         const memoryKey = `${ip}:${Math.floor(now / windowMs)}`;

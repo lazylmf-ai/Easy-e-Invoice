@@ -69,7 +69,7 @@ app.post('/pdf',
   async (c) => {
     try {
       const user = getAuthenticatedUser(c);
-      const data = getValidatedBody(c);
+      const data = getValidatedBody<z.infer<typeof pdfExportSchema>>(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -116,12 +116,16 @@ app.post('/pdf',
         ? `invoice-${requestedInvoices[0].invoice.invoiceNumber}.pdf`
         : `invoices-batch-${new Date().toISOString().split('T')[0]}.pdf`;
 
+      // Get performance metrics from PDF generation
+      const pdfGenerationTime = performance.pdfGenerationTime || 0;
+      const targetMet = pdfGenerationTime <= 20;
+      
       return c.body(pdfBuffer, 200, {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'X-Export-Count': requestedInvoices.length.toString(),
         'X-Generation-Time': `${pdfGenerationTime}ms`,
-        'X-Performance-Target-Met': performance.targetMet.toString(),
+        'X-Performance-Target-Met': targetMet.toString(),
       });
     } catch (error) {
       console.error('PDF export failed:', error);
@@ -139,7 +143,7 @@ app.post('/json',
   async (c) => {
     try {
       const user = getAuthenticatedUser(c);
-      const data = getValidatedBody(c);
+      const data = getValidatedBody<z.infer<typeof jsonExportSchema>>(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -174,21 +178,12 @@ app.post('/json',
         }, 404);
       }
 
-      // Fetch line items if requested
-      let lineItemsData = [];
-      if (data.includeLineItems) {
-        lineItemsData = await db
-          .select()
-          .from(invoiceLines)
-          .where(eq(invoiceLines.invoiceId, requestedInvoices[0].id)); // Simplified for demo
-      }
-
       // Generate export based on format
       let exportData;
       if (data.format === 'myinvois') {
-        exportData = generateMyInvoisFormat(requestedInvoices, lineItemsData);
+        exportData = generateMyInvoisFormat(requestedInvoices);
       } else {
-        exportData = generateStandardFormat(requestedInvoices, lineItemsData);
+        exportData = generateStandardFormat(requestedInvoices);
       }
 
       const filename = requestedInvoices.length === 1 
@@ -221,7 +216,7 @@ app.post('/csv',
   async (c) => {
     try {
       const user = getAuthenticatedUser(c);
-      const data = getValidatedBody(c);
+      const data = getValidatedBody<z.infer<typeof csvExportSchema>>(c);
       const env = c.env as any;
       const db = createDatabaseFromEnv(env);
 
@@ -282,10 +277,10 @@ app.post('/batch',
   async (c) => {
     try {
       const user = getAuthenticatedUser(c);
-      const data = getValidatedBody(c);
+      const data = getValidatedBody<z.infer<typeof batchExportSchema>>(c);
 
       // Generate job ID
-      const jobId = `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const jobId = `export_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
       // Create job entry
       exportJobs.set(jobId, {
@@ -361,6 +356,16 @@ app.get('/jobs/:jobId', async (c) => {
 // Optimized PDF generation with template caching and batch processing
 const pdfTemplateCache = new Map<string, string>();
 
+// Performance tracking interface
+interface PDFPerformance {
+  pdfGenerationTime: number;
+}
+
+// Global performance tracker for PDF generation
+const performance = {
+  pdfGenerationTime: 0
+};
+
 async function generateInvoicePDF(invoices: any[], options: any): Promise<ArrayBuffer> {
   // Performance optimization: Use cached templates and batch processing
   const startTime = Date.now();
@@ -371,7 +376,7 @@ async function generateInvoicePDF(invoices: any[], options: any): Promise<ArrayB
     
     let pdfTemplate = pdfTemplateCache.get(templateKey);
     if (!pdfTemplate) {
-      pdfTemplate = createOptimizedPDFTemplate(options);
+      pdfTemplate = createOptimizedPDFTemplate();
       pdfTemplateCache.set(templateKey, pdfTemplate);
     }
     
@@ -384,13 +389,15 @@ async function generateInvoicePDF(invoices: any[], options: any): Promise<ArrayB
     const pdfParts = [
       pdfTemplate,
       invoiceContent,
-      generatePDFFooter(invoices.length, options)
+      generatePDFFooter()
     ];
     
     const finalPDF = pdfParts.join('');
     
-    // Performance logging
+    // Performance logging and tracking
     const processingTime = Date.now() - startTime;
+    (performance as any).pdfGenerationTime = processingTime;
+    
     if (processingTime > 20) { // Log if slower than target
       console.warn(`PDF generation took ${processingTime}ms for ${invoices.length} invoices (target: <20ms)`);
     }
@@ -400,11 +407,11 @@ async function generateInvoicePDF(invoices: any[], options: any): Promise<ArrayB
   } catch (error) {
     console.error('PDF generation error:', error);
     // Fallback to minimal PDF
-    return generateMinimalPDF(invoices, options);
+    return generateMinimalPDF(invoices);
   }
 }
 
-function createOptimizedPDFTemplate(options: any): string {
+function createOptimizedPDFTemplate(): string {
   // Optimized template with minimal overhead
   return `%PDF-1.4
 1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj
@@ -437,7 +444,7 @@ function generateMinimalPDF(invoices: any[], options: any): ArrayBuffer {
 }
 
 // Helper function to generate MyInvois format
-function generateMyInvoisFormat(invoices: any[], lineItems: any[]): any {
+function generateMyInvoisFormat(invoices: any[]): any {
   return {
     _D: "urn:oasis:names:specification:ubl:schema:xsd:Invoice-2",
     _A: "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2",
@@ -456,7 +463,7 @@ function generateMyInvoisFormat(invoices: any[], lineItems: any[]): any {
 }
 
 // Helper function to generate standard format
-function generateStandardFormat(invoices: any[], lineItems: any[]): any {
+function generateStandardFormat(invoices: any[]): any {
   return {
     exportMetadata: {
       generatedAt: new Date().toISOString(),
@@ -532,7 +539,7 @@ function generateCSVExport(invoices: any[], options: any): string {
 }
 
 // Helper function to process batch exports
-async function processBatchExport(jobId: string, data: any, user: any) {
+async function processBatchExport(jobId: string, data: z.infer<typeof batchExportSchema>, user: any) {
   const job = exportJobs.get(jobId);
   if (!job) return;
 
